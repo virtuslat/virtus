@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
       const dailyProfits = await prisma.walletLedger.findMany({
         where: {
           user_id: authResult.user.userId,
-          type: { in: ['REFERRAL_BONUS', 'ADJUSTMENT', 'FUTURE_ENTRY', 'FUTURE_PAYOUT', 'RANK_BONUS', 'SENAL_PROFIT', 'GLOBAL_BONUS', 'BONO_RETORNO'] },
+          type: { in: ['REFERRAL_BONUS', 'ADJUSTMENT', 'FUTURE_ENTRY', 'FUTURE_PAYOUT', 'RANK_BONUS', 'SENAL_PROFIT', 'GLOBAL_BONUS', 'BONO_RETORNO', 'ACTIVATION_BONUS', 'EFFORT_BONUS'] },
           created_at: { gte: sevenDaysAgo },
         },
         select: {
@@ -136,20 +136,20 @@ export async function GET(req: NextRequest) {
       })
       const ruleMap = new Map(bonusRules.map((r) => [r.level, r.percentage]))
 
-      // Calcular bonos reales pagados desde WalletLedger
-      // Las descripciones son: "Bono patrocinio nivel 1 (8.5% directo)", "Bono patrocinio nivel 2 (3%)", etc.
+      // Calcular bonos reales pagados desde WalletLedger (por columna ref_level)
       const computedLevels: { level: number; amount_bs: number; percentage: number }[] = []
       let totalReal = 0
 
       for (let level = 1; level <= 3; level++) {
         const percentage = ruleMap.get(level) || 0
 
-        // Solo bonos de patrocinio directo (excluir "compartido")
+        // Solo bonos de patrocinio directo (excluir el compartido)
         const levelBonus = await prisma.walletLedger.aggregate({
           where: {
             user_id: authResult.user.userId,
             type: 'REFERRAL_BONUS',
-            description: { contains: `patrocinio nivel ${level}`, mode: 'insensitive' },
+            ref_level: level,
+            ref_shared: false,
           },
           _sum: { amount_bs: true },
         })
@@ -172,7 +172,7 @@ export async function GET(req: NextRequest) {
       const totalEarnings = await prisma.walletLedger.aggregate({
         where: {
           user_id: authResult.user.userId,
-          type: { in: ['REFERRAL_BONUS', 'ADJUSTMENT', 'FUTURE_ENTRY', 'FUTURE_PAYOUT', 'RANK_BONUS', 'SENAL_PROFIT', 'GLOBAL_BONUS', 'BONO_RETORNO'] },
+          type: { in: ['REFERRAL_BONUS', 'ADJUSTMENT', 'FUTURE_ENTRY', 'FUTURE_PAYOUT', 'RANK_BONUS', 'SENAL_PROFIT', 'GLOBAL_BONUS', 'BONO_RETORNO', 'ACTIVATION_BONUS', 'EFFORT_BONUS'] },
         },
         _sum: { amount_bs: true },
       })
@@ -254,7 +254,7 @@ export async function GET(req: NextRequest) {
         where: {
           user_id: authResult.user.userId,
           type: 'REFERRAL_BONUS',
-          description: { contains: 'compartido' },
+          ref_shared: true,
         },
         select: {
           amount_bs: true,
@@ -316,7 +316,7 @@ export async function GET(req: NextRequest) {
       latestUsers = users.map(u => {
         // Calcular ganancias totales (solo tipos de ganancia)
         const totalEarnings = u.wallet_ledger
-          .filter(w => ['REFERRAL_BONUS', 'ADJUSTMENT', 'FUTURE_ENTRY', 'FUTURE_PAYOUT', 'RANK_BONUS', 'SENAL_PROFIT', 'GLOBAL_BONUS', 'BONO_RETORNO'].includes(w.type))
+          .filter(w => ['REFERRAL_BONUS', 'ADJUSTMENT', 'FUTURE_ENTRY', 'FUTURE_PAYOUT', 'RANK_BONUS', 'SENAL_PROFIT', 'GLOBAL_BONUS', 'BONO_RETORNO', 'ACTIVATION_BONUS', 'EFFORT_BONUS'].includes(w.type))
           .reduce((sum, w) => sum + (w.amount_bs || 0), 0)
 
         // Calcular balance de billetera (todas las transacciones)

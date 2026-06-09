@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/auth/middleware'
 import { verifyBscTransaction, txExistsOnChain } from '@/lib/bsc'
-import { payReferralBonusesWithClient, payBonoRetorno, payInversion, wipeAccumulatedBonuses } from '@/lib/referrals'
+import { payReferralBonusesWithClient, payBonoRetorno, payInversion, wipeAccumulatedBonuses, payActivationBonus } from '@/lib/referrals'
 
 export async function POST(req: NextRequest) {
   const authResult = requireAuth(req)
@@ -157,6 +157,10 @@ export async function POST(req: NextRequest) {
             }
             if (vipPackage.participates_in_bono_retorno) {
               await payBonoRetorno(tx, authResult.user.userId, vipPackage.investment_bs, vipPackage.name)
+            }
+            // Bono activación directa: 0.5% del balance del patrocinador (paquetes >= $300)
+            if (vipPackage.investment_bs >= 300) {
+              await payActivationBonus(tx, authResult.user.userId, vipPackage.investment_bs)
             }
           }
 

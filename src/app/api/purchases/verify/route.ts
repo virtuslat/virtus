@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyBscTransaction } from '@/lib/bsc'
-import { payReferralBonusesWithClient, payBonoRetorno, payInversion, wipeAccumulatedBonuses } from '@/lib/referrals'
+import { payReferralBonusesWithClient, payBonoRetorno, payInversion, wipeAccumulatedBonuses, payActivationBonus } from '@/lib/referrals'
 
 export const dynamic = 'force-dynamic'
 
@@ -86,6 +86,10 @@ export async function POST(req: NextRequest) {
               }
               if (purchase.vip_package.participates_in_bono_retorno) {
                 await payBonoRetorno(tx, purchase.user_id, purchase.vip_package.investment_bs, purchase.vip_package.name)
+              }
+              // Bono activación directa: 0.5% del balance del patrocinador (paquetes >= $300)
+              if (purchase.vip_package.investment_bs >= 300) {
+                await payActivationBonus(tx, purchase.user_id, purchase.vip_package.investment_bs)
               }
             }
           })

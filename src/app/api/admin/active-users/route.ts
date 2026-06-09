@@ -97,6 +97,8 @@ export async function GET(req: NextRequest) {
               type: true,
               amount_bs: true,
               description: true,
+              ref_level: true,
+              ref_shared: true,
               created_at: true,
             },
           })
@@ -126,12 +128,10 @@ export async function GET(req: NextRequest) {
             }))
             const totalAdjustments = manualAdjusts.reduce((sum, a) => sum + a.amount_bs, 0)
 
-            // Agrupar bonos de patrocinio por nivel
+            // Agrupar bonos de patrocinio por nivel (columna ref_level)
             const bonusByLevel = new Map<string, number>()
             referralBonuses.forEach(bonus => {
-              // Extraer nivel de la descripción (ej: "Bono de referido nivel 1 (10%)")
-              const levelMatch = bonus.description?.match(/nivel (\d+)/i)
-              const level = levelMatch ? levelMatch[1] : 'Desconocido'
+              const level = bonus.ref_level != null ? String(bonus.ref_level) : 'Desconocido'
               bonusByLevel.set(level, (bonusByLevel.get(level) || 0) + bonus.amount_bs)
             })
 

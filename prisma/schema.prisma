@@ -34,6 +34,7 @@ model User {
   rank_history       UserRankHistory[]
   current_rank       Int              @default(0)
   signal_executions  SignalExecution[]
+  effort_bonus_claims EffortBonusClaim[]
   kyc_status         KycStatus        @default(NOT_SUBMITTED)
   kyc_selfie_url     String?
   kyc_front_url      String?
@@ -101,6 +102,8 @@ model WalletLedger {
   type        LedgerType
   amount_bs   Float
   description String?
+  ref_level   Int?       // nivel de patrocinio (1, 2, 3) para REFERRAL_BONUS
+  ref_shared  Boolean    @default(false) // true = bono compartido (1.5%), false = directo
   created_at  DateTime   @default(now())
   user        User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
@@ -171,12 +174,29 @@ model EffortBonus {
   level_description       String
   amount_bs               Float
   requirement_description String
+  required_count          Int      @default(0)   // nº de activos requeridos para pagar
+  count_levels            Int      @default(1)    // profundidad de niveles a contar (1, 2 o 3)
   sort_order              Int      @default(0)
   is_active               Boolean  @default(true)
   created_at              DateTime @default(now())
   updated_at              DateTime @updatedAt
+  claims                  EffortBonusClaim[]
 
   @@index([sort_order])
+}
+
+// Registro de bonos de esfuerzo ya pagados (evita doble pago)
+model EffortBonusClaim {
+  id              String      @id @default(cuid())
+  user_id         String
+  effort_bonus_id Int
+  amount_bs       Float
+  created_at      DateTime    @default(now())
+  user            User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  effort_bonus    EffortBonus @relation(fields: [effort_bonus_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, effort_bonus_id])
+  @@index([user_id])
 }
 
 model PasswordReset {
@@ -260,6 +280,7 @@ enum LedgerType {
   SENAL_PROFIT
   GLOBAL_BONUS
   ACTIVATION_BONUS
+  EFFORT_BONUS
 }
 
 

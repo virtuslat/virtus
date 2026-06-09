@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { payEffortBonuses } from '@/lib/effortBonuses'
 
 export const RANK_CONFIG: Record<number, {
   title: string
@@ -188,6 +189,13 @@ export async function recalculateUserRank(
         bonusPaid = true
       }
     })
+  }
+
+  // Evaluar y pagar bonos de esfuerzo (idempotente; no depende del cambio de rango)
+  try {
+    await payEffortBonuses(userId, db)
+  } catch (err) {
+    console.error(`Error pagando bonos de esfuerzo para ${userId}:`, err)
   }
 
   return { oldRank, newRank, bonusPaid }

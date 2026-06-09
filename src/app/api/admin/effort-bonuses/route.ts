@@ -23,6 +23,8 @@ export async function GET(req: NextRequest) {
                         level_description: 'Primer nivel',
                         amount_bs: 300,
                         requirement_description: 'Se paga al tener 30 activos directos.',
+                        required_count: 30,
+                        count_levels: 1,
                         sort_order: 1,
                     },
                     {
@@ -31,6 +33,8 @@ export async function GET(req: NextRequest) {
                         level_description: 'Primer y segundo nivel',
                         amount_bs: 500,
                         requirement_description: 'Cuenta activos directos y de tu segundo nivel.',
+                        required_count: 50,
+                        count_levels: 2,
                         sort_order: 2,
                     },
                     {
@@ -39,6 +43,8 @@ export async function GET(req: NextRequest) {
                         level_description: 'Primer, segundo y tercer nivel',
                         amount_bs: 1000,
                         requirement_description: 'Se paga al completar 100 activos en 3 niveles.',
+                        required_count: 100,
+                        count_levels: 3,
                         sort_order: 3,
                     },
                 ],
@@ -66,7 +72,7 @@ export async function PUT(req: NextRequest) {
 
     try {
         const body = await req.json()
-        const { id, title, target_kpi, level_description, amount_bs, requirement_description, is_active } = body
+        const { id, title, target_kpi, level_description, amount_bs, requirement_description, is_active, required_count, count_levels } = body
 
         if (!id) {
             return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
@@ -81,6 +87,8 @@ export async function PUT(req: NextRequest) {
                 amount_bs: Number(amount_bs),
                 requirement_description,
                 is_active,
+                ...(required_count !== undefined ? { required_count: Math.max(0, Number(required_count) || 0) } : {}),
+                ...(count_levels !== undefined ? { count_levels: Math.min(3, Math.max(1, Number(count_levels) || 1)) } : {}),
             },
         })
 
@@ -102,7 +110,7 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json()
-        const { title, target_kpi, level_description, amount_bs, requirement_description } = body
+        const { title, target_kpi, level_description, amount_bs, requirement_description, required_count, count_levels } = body
 
         console.log('Creating bonus:', body)
 
@@ -117,6 +125,8 @@ export async function POST(req: NextRequest) {
                 level_description: level_description || '',
                 amount_bs: Number(amount_bs),
                 requirement_description: requirement_description || '',
+                required_count: Math.max(0, Number(required_count) || 0),
+                count_levels: Math.min(3, Math.max(1, Number(count_levels) || 1)),
                 is_active: true,
                 sort_order: 100, // Default to end
             },

@@ -68,7 +68,7 @@ export async function GET(
     const earningsResult = await prisma.walletLedger.aggregate({
       where: {
         user_id: userId,
-        type: { in: ['SENAL_PROFIT', 'FUTURE_PAYOUT', 'RANK_BONUS', 'GLOBAL_BONUS', 'BONO_RETORNO', 'REFERRAL_BONUS'] },
+        type: { in: ['SENAL_PROFIT', 'FUTURE_PAYOUT', 'RANK_BONUS', 'GLOBAL_BONUS', 'BONO_RETORNO', 'REFERRAL_BONUS', 'ACTIVATION_BONUS', 'EFFORT_BONUS'] },
       },
       _sum: { amount_bs: true },
     })

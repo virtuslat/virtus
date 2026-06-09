@@ -37,6 +37,8 @@ async function applyReferralBonuses(
         type: 'REFERRAL_BONUS',
         amount_bs: directBonus * multiplier,
         description: `${actionLabel} patrocinio nivel 1 (8.5% directo)`,
+        ref_level: 1,
+        ref_shared: false,
       },
     })
 
@@ -58,6 +60,8 @@ async function applyReferralBonuses(
             type: 'REFERRAL_BONUS',
             amount_bs: bonusPerReferral * multiplier,
             description: `${actionLabel} compartido nivel 1 (1.5% / ${directReferrals.length} frontales)`,
+            ref_level: 1,
+            ref_shared: true,
           },
         })
       }
@@ -71,6 +75,8 @@ async function applyReferralBonuses(
         type: 'REFERRAL_BONUS',
         amount_bs: bonusAmount * multiplier,
         description: `${actionLabel} patrocinio nivel 2 (3%)`,
+        ref_level: 2,
+        ref_shared: false,
       },
     })
   } else if (level === 3) {
@@ -82,6 +88,8 @@ async function applyReferralBonuses(
         type: 'REFERRAL_BONUS',
         amount_bs: bonusAmount * multiplier,
         description: `${actionLabel} patrocinio nivel 3 (2%)`,
+        ref_level: 3,
+        ref_shared: false,
       },
     })
   }
