@@ -491,7 +491,7 @@ export default function FuturosPage() {
 
   const fetchHistorical = async (symbol: string, interval: string) => {
     try {
-      const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=50`)
+      const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=150`)
       const data = await res.json()
       return data.map((d: any) => ({
         time: d[0],
@@ -510,108 +510,143 @@ export default function FuturosPage() {
   const updateChart = (data: Candle[]) => {
     if (!chartInstance.current) return
 
-    const dates = data.map(d => new Date(d.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+    const dates = data.map(d => {
+      const dt = new Date(d.time)
+      return dt.toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+    })
     const values = data.map(d => [d.open, d.close, d.low, d.high])
-    const volumes = data.map((d, i) => [i, d.volume, d.close > d.open ? 1 : -1])
+    const volumes = data.map((d, i) => [i, d.volume, d.close >= d.open ? 1 : -1])
 
-    // Calculate MA
+    // Media móvil sobre el precio de cierre (índice 1 de values)
     const calculateMA = (dayCount: number) => {
-      const result = []
+      const result: (string | number)[] = []
       for (let i = 0; i < values.length; i++) {
-        if (i < dayCount) {
-          result.push('-')
-          continue
-        }
+        if (i < dayCount - 1) { result.push('-'); continue }
         let sum = 0
-        for (let j = 0; j < dayCount; j++) {
-          sum += values[i - j][1]
-        }
-        result.push((sum / dayCount).toFixed(2))
+        for (let j = 0; j < dayCount; j++) sum += values[i - j][1]
+        result.push(+(sum / dayCount).toFixed(2))
       }
       return result
     }
 
+    // Media móvil sobre el volumen
+    const calculateVolMA = (dayCount: number) => {
+      const result: (string | number)[] = []
+      for (let i = 0; i < volumes.length; i++) {
+        if (i < dayCount - 1) { result.push('-'); continue }
+        let sum = 0
+        for (let j = 0; j < dayCount; j++) sum += volumes[i - j][1]
+        result.push(+(sum / dayCount).toFixed(2))
+      }
+      return result
+    }
+
+    const ma7 = calculateMA(7)
+    const ma25 = calculateMA(25)
+    const ma99 = calculateMA(99)
+
+    const lastVal = (arr: (string | number)[]) => {
+      for (let i = arr.length - 1; i >= 0; i--) if (arr[i] !== '-') return arr[i] as number
+      return '-'
+    }
+    const fmt = (v: any) => v === '-' ? '-' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+    const cMA7 = '#F0B90B', cMA25 = '#E854A0', cMA99 = '#7C5CFC'
+
     const option = {
       backgroundColor: 'transparent',
       animation: false,
+      title: {
+        left: 4, top: 0,
+        text: `{a|MA(7): ${fmt(lastVal(ma7))}}  {b|MA(25): ${fmt(lastVal(ma25))}}  {c|MA(99): ${fmt(lastVal(ma99))}}`,
+        textStyle: {
+          fontSize: 10, fontWeight: 'normal' as const, fontFamily: 'Orbitron',
+          rich: {
+            a: { color: cMA7, fontSize: 10, fontFamily: 'Orbitron' },
+            b: { color: cMA25, fontSize: 10, fontFamily: 'Orbitron' },
+            c: { color: cMA99, fontSize: 10, fontFamily: 'Orbitron' },
+          }
+        }
+      },
       tooltip: {
         trigger: 'axis',
-        axisPointer: { type: 'cross' },
-        backgroundColor: 'rgba(16, 23, 32, 0.9)',
-        borderColor: '#00d49d',
-        textStyle: { color: '#fff', fontFamily: 'Orbitron' }
+        axisPointer: { type: 'cross', lineStyle: { color: '#8a929b', width: 1, opacity: 0.6 } },
+        backgroundColor: 'rgba(16, 23, 32, 0.95)',
+        borderColor: '#34D399',
+        textStyle: { color: '#fff', fontSize: 11 }
       },
+      axisPointer: { link: [{ xAxisIndex: [0, 1] }] },
       grid: [
-        { left: 0, right: 40, top: 20, height: '60%' },
-        { left: 0, right: 40, top: '65%', height: '15%' }
+        { left: 8, right: 62, top: 22, height: '56%' },
+        { left: 8, right: 62, top: '66%', height: '15%' }
       ],
       xAxis: [
         {
-          type: 'category',
-          data: dates,
-          axisLine: { show: false },
-          axisLabel: { show: false }, // Hide labels to look cleaner or match Vue
-          splitLine: { show: true, lineStyle: { color: '#34D399', opacity: 0.1 } }
+          type: 'category', data: dates, boundaryGap: true,
+          axisLine: { lineStyle: { color: '#2a2f38' } },
+          axisLabel: { show: false },
+          splitLine: { show: false }
         },
         {
-          type: 'category',
-          gridIndex: 1,
-          data: dates,
-          axisLabel: { show: false }
+          type: 'category', gridIndex: 1, data: dates, boundaryGap: true,
+          axisLine: { lineStyle: { color: '#2a2f38' } },
+          axisTick: { show: false },
+          axisLabel: { show: true, color: '#8a929b', fontSize: 8, fontFamily: 'Orbitron', hideOverlap: true }
         }
       ],
       yAxis: [
         {
-          position: 'right',
-          scale: true,
+          position: 'right', scale: true,
           axisLine: { show: false },
-          splitLine: { show: true, lineStyle: { color: '#34D399', opacity: 0.1 } },
-          axisLabel: { color: '#8a929b', fontSize: 10, fontFamily: 'Orbitron' }
+          splitLine: { show: true, lineStyle: { color: 'rgba(138,146,155,0.08)' } },
+          axisLabel: { color: '#8a929b', fontSize: 9, fontFamily: 'Orbitron' }
         },
         {
-          scale: true,
-          gridIndex: 1,
-          splitNumber: 2,
-          axisLabel: { show: false },
-          axisLine: { show: false },
-          splitLine: { show: false }
+          scale: true, gridIndex: 1, splitNumber: 2, position: 'right',
+          axisLabel: { show: true, color: '#8a929b', fontSize: 8, fontFamily: 'Orbitron' },
+          axisLine: { show: false }, splitLine: { show: false }
         }
       ],
       series: [
         {
-          type: 'candlestick',
-          data: values,
+          name: 'Velas', type: 'candlestick', data: values,
           itemStyle: {
-            color: '#00d49d',
-            color0: '#ff5a5a',
-            borderColor: '#00d49d',
-            borderColor0: '#ff5a5a'
+            color: '#00d49d', color0: '#ff5a5a',
+            borderColor: '#00d49d', borderColor0: '#ff5a5a'
+          },
+          markPoint: {
+            symbol: 'circle', symbolSize: 1,
+            label: { color: '#cfd6dd', fontSize: 9, fontFamily: 'Orbitron' },
+            data: [
+              { type: 'max', valueDim: 'highest', label: { formatter: (p: any) => '← ' + Number(p.value).toLocaleString('en-US'), position: 'right' } },
+              { type: 'min', valueDim: 'lowest', label: { formatter: (p: any) => '← ' + Number(p.value).toLocaleString('en-US'), position: 'right' } }
+            ]
           },
           markLine: {
             symbol: ['none', 'none'],
             data: [
               {
                 yAxis: currentPrice,
-                label: { show: false },
-                lineStyle: { color: '#fff', type: 'dashed', width: 1, opacity: 0.8 }
+                label: {
+                  show: true, position: 'end',
+                  formatter: () => Number(currentPrice).toLocaleString('en-US', { maximumFractionDigits: 2 }),
+                  color: '#0A1119', backgroundColor: '#F0B90B', padding: [2, 4], fontSize: 9, fontFamily: 'Orbitron'
+                },
+                lineStyle: { color: '#F0B90B', type: 'dashed', width: 1, opacity: 0.9 }
               }
             ],
             animation: false
           }
         },
-        { name: 'MA5', type: 'line', data: calculateMA(5), smooth: true, showSymbol: false, lineStyle: { width: 1, color: '#dcb329' } },
-        { name: 'MA10', type: 'line', data: calculateMA(10), smooth: true, showSymbol: false, lineStyle: { width: 1, color: '#b05fa0' } },
-        { name: 'MA20', type: 'line', data: calculateMA(20), smooth: true, showSymbol: false, lineStyle: { width: 1, color: '#3b91bc' } },
+        { name: 'MA7', type: 'line', data: ma7, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA7 } },
+        { name: 'MA25', type: 'line', data: ma25, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA25 } },
+        { name: 'MA99', type: 'line', data: ma99, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA99 } },
         {
-          name: 'Volume',
-          type: 'bar',
-          xAxisIndex: 1,
-          yAxisIndex: 1,
-          data: volumes,
-          itemStyle: {
-            color: (params: any) => params.value[2] === 1 ? 'rgba(0, 212, 157, 0.5)' : 'rgba(255, 90, 90, 0.5)'
-          }
-        }
+          name: 'Volume', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: volumes,
+          itemStyle: { color: (params: any) => params.value[2] === 1 ? 'rgba(0, 212, 157, 0.45)' : 'rgba(255, 90, 90, 0.45)' }
+        },
+        { name: 'VolMA5', type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: calculateVolMA(5), smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA7, opacity: 0.7 } },
+        { name: 'VolMA10', type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: calculateVolMA(10), smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA99, opacity: 0.7 } }
       ]
     }
 
@@ -1372,10 +1407,6 @@ export default function FuturosPage() {
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">{t('trading.previousCapital')}</span>
                 <span className="text-white font-bold font-[Orbitron]">${signalResult.capital_before.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-500">{t('trading.operation')}</span>
-                <span className="text-[#FFD700] font-bold font-[Orbitron]">+${signalResult.capital_added.toFixed(2)}</span>
               </div>
             </div>
 

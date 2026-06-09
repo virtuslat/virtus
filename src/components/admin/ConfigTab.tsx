@@ -29,6 +29,8 @@ export default function ConfigTab({ token }: ConfigTabProps) {
   const [bonusRules, setBonusRules] = useState<BonusRule[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
+  const [feePercent, setFeePercent] = useState<number>(10)
+  const [savingFee, setSavingFee] = useState(false)
   const { showToast } = useToast()
 
   useEffect(() => {
@@ -40,11 +42,14 @@ export default function ConfigTab({ token }: ConfigTabProps) {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [pkgRes, bonusRes] = await Promise.all([
+      const [pkgRes, bonusRes, configRes] = await Promise.all([
         fetch('/api/admin/vip-packages', {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch('/api/admin/bonus-rules', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch('/api/admin/config', {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ])
@@ -58,6 +63,12 @@ export default function ConfigTab({ token }: ConfigTabProps) {
         const bonusData = await bonusRes.json()
         console.log('Bonos cargados:', bonusData)
         setBonusRules(bonusData)
+      }
+      if (configRes.ok) {
+        const cfg = await configRes.json()
+        if (typeof cfg.withdrawal_fee_percent === 'number') {
+          setFeePercent(cfg.withdrawal_fee_percent)
+        }
       }
     } catch (error) {
       console.error('Error fetching config:', error)
@@ -116,6 +127,29 @@ export default function ConfigTab({ token }: ConfigTabProps) {
     }
   }
 
+  const saveFee = async () => {
+    setSavingFee(true)
+    try {
+      const res = await fetch('/api/admin/config', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ withdrawal_fee_percent: feePercent }),
+      })
+      if (res.ok) {
+        showToast('Comisión de retiro actualizada', 'success')
+      } else {
+        showToast('Error al actualizar la comisión', 'error')
+      }
+    } catch (error) {
+      showToast('Error de conexión', 'error')
+    } finally {
+      setSavingFee(false)
+    }
+  }
+
   const updatePackageField = (pkgId: number, field: keyof VipPackage, value: any) => {
     setPackages(packages.map(p =>
       p.id === pkgId ? { ...p, [field]: value } : p
@@ -147,6 +181,47 @@ export default function ConfigTab({ token }: ConfigTabProps) {
 
   return (
     <div className="space-y-8">
+      {/* Comisión de Retiro */}
+      <div>
+        <div className="mb-4">
+          <h2 className="text-2xl font-bold text-gold mb-2">💸 Retiros</h2>
+          <p className="text-sm text-text-secondary">
+            Comisión que se le descuenta al usuario en cada retiro
+          </p>
+        </div>
+        <Card glassEffect>
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="text-text-primary font-bold">Comisión de retiro:</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                value={feePercent}
+                onChange={(e) => setFeePercent(parseFloat(e.target.value) || 0)}
+                className="w-24 px-3 py-2 bg-dark-bg border border-gold border-opacity-30 rounded text-text-primary text-center font-bold focus:outline-none focus:border-gold transition-all"
+              />
+              <span className="text-gold font-bold text-lg">%</span>
+            </div>
+            <Button
+              variant="primary"
+              onClick={saveFee}
+              disabled={savingFee}
+              className="text-sm px-4 py-2"
+            >
+              {savingFee ? 'Guardando...' : 'Guardar'}
+            </Button>
+          </div>
+          <p className="text-xs text-text-secondary mt-3">
+            💡 Ejemplo: con <strong className="text-gold">10%</strong>, si el usuario retira $100 recibe $90.
+          </p>
+          <p className="text-xs text-text-secondary mt-1">
+            🔒 El mínimo de retiro (<strong className="text-gold">$30</strong>) y el límite de <strong className="text-gold">3 retiros por semana</strong> los controla el sistema automáticamente.
+          </p>
+        </Card>
+      </div>
+
       {/* VIP Packages Table */}
       <div>
         <div className="mb-4">

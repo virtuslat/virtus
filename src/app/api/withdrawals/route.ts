@@ -2,6 +2,28 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/auth/middleware'
 
+// Reglas del sistema (las controla el sistema, no el admin)
+const MIN_WITHDRAWAL_USD = 30
+const WEEKLY_WITHDRAWAL_LIMIT = 3
+
+// Devuelve el lunes 00:00 (inicio de la semana actual) en hora del servidor
+function startOfCurrentWeekMonday(): Date {
+  const now = new Date()
+  const day = now.getDay() // 0=Dom, 1=Lun, ... 6=Sab
+  const daysSinceMonday = day === 0 ? 6 : day - 1
+  const monday = new Date(now)
+  monday.setDate(now.getDate() - daysSinceMonday)
+  monday.setHours(0, 0, 0, 0)
+  return monday
+}
+
+// Próximo lunes 00:00 (cuando se desbloquean los retiros)
+function nextMonday(): Date {
+  const monday = startOfCurrentWeekMonday()
+  monday.setDate(monday.getDate() + 7)
+  return monday
+}
+
 export async function GET(req: NextRequest) {
   const authResult = requireAuth(req)
   if ('error' in authResult) {
@@ -30,7 +52,31 @@ export async function GET(req: NextRequest) {
       orderBy: { created_at: 'desc' },
     })
 
-    return NextResponse.json({ balance, withdrawals, totalInversion })
+    // Comisión de retiro (controlada por el admin)
+    const config = await prisma.globalConfig.findUnique({
+      where: { id: 1 },
+      select: { withdrawal_fee_percent: true },
+    })
+    const withdrawal_fee_percent = config?.withdrawal_fee_percent ?? 10
+
+    // Retiros hechos esta semana (no rechazados) para mostrar el límite
+    const weeklyCount = await prisma.withdrawal.count({
+      where: {
+        user_id: authResult.user.userId,
+        status: { not: 'REJECTED' },
+        created_at: { gte: startOfCurrentWeekMonday() },
+      },
+    })
+
+    return NextResponse.json({
+      balance,
+      withdrawals,
+      totalInversion,
+      withdrawal_fee_percent,
+      min_withdrawal_usd: MIN_WITHDRAWAL_USD,
+      weekly_limit: WEEKLY_WITHDRAWAL_LIMIT,
+      weekly_used: weeklyCount,
+    })
   } catch (error) {
     console.error('Withdrawals GET error:', error)
     return NextResponse.json(
@@ -65,12 +111,35 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Límite semanal: máximo 3 retiros por semana. Si ya hizo 3, se bloquea hasta el próximo lunes.
+    const weeklyCount = await prisma.withdrawal.count({
+      where: {
+        user_id: authResult.user.userId,
+        status: { not: 'REJECTED' },
+        created_at: { gte: startOfCurrentWeekMonday() },
+      },
+    })
+    if (weeklyCount >= WEEKLY_WITHDRAWAL_LIMIT) {
+      const unlock = nextMonday().toLocaleDateString('es-ES', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+      })
+      return NextResponse.json(
+        {
+          error: `Alcanzaste el límite de ${WEEKLY_WITHDRAWAL_LIMIT} retiros por semana. Podrás retirar de nuevo el próximo lunes (${unlock}).`,
+          weekly_limit_reached: true,
+        },
+        { status: 429 }
+      )
+    }
+
     const { amount_bs, bank_name, qr_image_url, payout_method, phone_number } = await req.json()
 
-    // Validar monto: cualquier valor >= 1 y con máximo 2 decimales
-    if (!amount_bs || typeof amount_bs !== 'number' || amount_bs < 1) {
+    // Validar monto: mínimo $30 y con máximo 2 decimales
+    if (!amount_bs || typeof amount_bs !== 'number' || amount_bs < MIN_WITHDRAWAL_USD) {
       return NextResponse.json(
-        { error: 'El monto mínimo de retiro es $1' },
+        { error: `El monto mínimo de retiro es $${MIN_WITHDRAWAL_USD}` },
         { status: 400 }
       )
     }

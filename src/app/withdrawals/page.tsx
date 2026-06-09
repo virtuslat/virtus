@@ -29,6 +29,8 @@ export default function WithdrawalsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [kycStatus, setKycStatus] = useState<string>('NOT_SUBMITTED')
+  const [feePercent, setFeePercent] = useState<number>(10)
+  const [minWithdrawal, setMinWithdrawal] = useState<number>(30)
   const { showToast } = useToast()
 
   const dateLocale = language === 'es' ? 'es-ES' : 'en-US'
@@ -58,6 +60,8 @@ export default function WithdrawalsPage() {
         setBalance(data.balance)
         setTotalInversion(data.totalInversion || 0)
         setWithdrawals(data.withdrawals)
+        if (typeof data.withdrawal_fee_percent === 'number') setFeePercent(data.withdrawal_fee_percent)
+        if (typeof data.min_withdrawal_usd === 'number') setMinWithdrawal(data.min_withdrawal_usd)
       }
 
       const kycRes = await fetch('/api/kyc', {
@@ -89,8 +93,10 @@ export default function WithdrawalsPage() {
     setError('')
 
     const amountNum = parseFloat(amount)
-    if (isNaN(amountNum) || amountNum < 1) {
-      setError(t('withdrawals.minAmount'))
+    if (isNaN(amountNum) || amountNum < minWithdrawal) {
+      setError(language === 'es'
+        ? `El monto mínimo de retiro es $${minWithdrawal}`
+        : `Minimum withdrawal is $${minWithdrawal}`)
       return
     }
 
@@ -184,7 +190,7 @@ export default function WithdrawalsPage() {
   }
 
   const calculateFinalAmount = (amount: number) => {
-    const discount = amount * 0.05
+    const discount = amount * (feePercent / 100)
     return amount - discount
   }
 
@@ -296,9 +302,9 @@ export default function WithdrawalsPage() {
                 </svg>
               </div>
               <div>
-                <p className="text-[11px] font-bold text-[#F87171]">{t('withdrawals.discount')}</p>
-                <p className="text-[10px] text-white/60 mt-0.5">{t('withdrawals.discountDesc')}</p>
-                <p className="text-[9px] text-white/35 mt-0.5">{t('withdrawals.discountExample')}</p>
+                <p className="text-[11px] font-bold text-[#F87171]">{t('withdrawals.discount').replace('{{pct}}', String(feePercent))}</p>
+                <p className="text-[10px] text-white/60 mt-0.5">{t('withdrawals.discountDesc').replace('{{pct}}', String(feePercent))}</p>
+                <p className="text-[9px] text-white/35 mt-0.5">{t('withdrawals.discountExample').replace('{{net}}', String(100 - feePercent))}</p>
               </div>
             </div>
 
@@ -397,7 +403,7 @@ export default function WithdrawalsPage() {
                 label={t('withdrawals.amountLabel')}
                 type="number"
                 step="0.01"
-                min="1"
+                min={String(minWithdrawal)}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
@@ -413,8 +419,8 @@ export default function WithdrawalsPage() {
                     <span className="text-white font-medium">${parseFloat(amount).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-[10px] mb-1">
-                    <span className="text-white/50">{t('withdrawals.discountLabel')}</span>
-                    <span className="text-[#F87171] font-medium">-${(parseFloat(amount) * 0.05).toFixed(2)}</span>
+                    <span className="text-white/50">{t('withdrawals.discountLabel').replace('{{pct}}', String(feePercent))}</span>
+                    <span className="text-[#F87171] font-medium">-${(parseFloat(amount) * (feePercent / 100)).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-xs pt-1.5 border-t border-white/10">
                     <span className="text-white/70 font-medium">{t('withdrawals.youReceive')}</span>

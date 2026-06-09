@@ -43,12 +43,18 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { whatsapp_number, binance_wallet_id, binance_qr_url } = body
+    const { whatsapp_number, binance_wallet_id, binance_qr_url, withdrawal_fee_percent } = body
 
-    const updateData: Record<string, string> = {}
+    const updateData: Record<string, any> = {}
     if (whatsapp_number !== undefined) updateData.whatsapp_number = whatsapp_number || ''
     if (binance_wallet_id !== undefined) updateData.binance_wallet_id = binance_wallet_id || ''
     if (binance_qr_url !== undefined) updateData.binance_qr_url = binance_qr_url || ''
+    if (withdrawal_fee_percent !== undefined) {
+      let fee = Number(withdrawal_fee_percent)
+      if (isNaN(fee) || fee < 0) fee = 0
+      if (fee > 100) fee = 100
+      updateData.withdrawal_fee_percent = fee
+    }
 
     const config = await prisma.globalConfig.upsert({
       where: { id: 1 },
@@ -58,6 +64,8 @@ export async function PUT(request: NextRequest) {
         whatsapp_number: whatsapp_number || '',
         binance_wallet_id: binance_wallet_id || '',
         binance_qr_url: binance_qr_url || '',
+        withdrawal_fee_percent:
+          withdrawal_fee_percent !== undefined ? Number(withdrawal_fee_percent) || 10 : 10,
       },
     })
 
