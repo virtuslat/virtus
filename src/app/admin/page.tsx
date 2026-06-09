@@ -11,6 +11,7 @@ import ConfigTab from '@/components/admin/ConfigTab'
 import TasksTab from '@/components/admin/TasksTab'
 import FuturosAdminTab from '@/components/admin/FuturosAdminTab'
 import EffortBonusTab from '@/components/admin/EffortBonusTab'
+import MessagesAdminTab from '@/components/admin/MessagesAdminTab'
 import { useToast } from '@/components/ui/Toast'
 
 type Tab =
@@ -23,6 +24,7 @@ type Tab =
   | 'futuros'
   | 'rangos'
   | 'esfuerzo'
+  | 'messages'
   | 'kyc'
 
 interface KycUser {
@@ -904,6 +906,7 @@ export default function AdminPage() {
     { key: 'futuros' as const, label: 'Futuros', icon: '📊' },
     { key: 'rangos' as const, label: 'Rangos', icon: '🏆' },
     { key: 'esfuerzo' as const, label: 'Esfuerzo', icon: '🎁' },
+    { key: 'messages' as const, label: 'Mensajes', icon: '💬' },
     { key: 'kyc' as const, label: 'KYC', icon: '🪪' },
   ]
 
@@ -1602,6 +1605,8 @@ export default function AdminPage() {
             {tab === 'config' && <ConfigTab token={token} />}
 
             {tab === 'esfuerzo' && <EffortBonusTab token={token} />}
+
+            {tab === 'messages' && <MessagesAdminTab token={token} />}
 
             {tab === 'active-users' && (
               <div className="space-y-4">

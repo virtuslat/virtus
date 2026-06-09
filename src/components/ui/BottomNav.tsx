@@ -68,7 +68,20 @@ export default function BottomNav() {
   ]
 
   return (
-    <nav className="fixed bottom-3 left-3 right-3 z-50 safe-area-inset-bottom lg:hidden">
+    <>
+      {/* Botón flotante de chat — sobre la barra de navegación, solo en móvil */}
+      <Link
+        href="/chat"
+        aria-label="Mensajes"
+        className="fixed right-4 bottom-[88px] z-50 lg:hidden w-14 h-14 rounded-full flex items-center justify-center shadow-[0_6px_24px_rgba(16,185,129,0.45)] active:scale-95 transition-transform"
+        style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)' }}
+      >
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+        </svg>
+      </Link>
+
+      <nav className="fixed bottom-3 left-3 right-3 z-50 safe-area-inset-bottom lg:hidden">
       {/* Fondo azul oscuro con bordes redondeados */}
       <div className="bg-[#0D1F1C] rounded-2xl shadow-[0_4px_30px_rgba(13,31,28,0.4)] overflow-hidden">
         <div className="max-w-screen-xl mx-auto px-2">
@@ -113,5 +126,6 @@ export default function BottomNav() {
         </div>
       </div>
     </nav>
+    </>
   )
 }

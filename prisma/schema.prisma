@@ -35,6 +35,8 @@ model User {
   current_rank       Int              @default(0)
   signal_executions  SignalExecution[]
   effort_bonus_claims EffortBonusClaim[]
+  messages_sent         Message[] @relation("MsgSender")
+  messages_conversation Message[] @relation("MsgConversation")
   kyc_status         KycStatus        @default(NOT_SUBMITTED)
   kyc_selfie_url     String?
   kyc_front_url      String?
@@ -238,6 +240,22 @@ model TaskCompletion {
   @@index([user_id])
   @@index([task_id])
   @@index([completed_at])
+}
+
+// Mensajes de chat: grupal (todos) y privado con el admin (soporte)
+model Message {
+  id                   String   @id @default(cuid())
+  scope                String   // 'GROUP' = chat grupal | 'ADMIN' = chat privado usuario<->admin
+  conversation_user_id String?  // en ADMIN: el usuario (no-admin) dueño de la conversación; null en GROUP
+  sender_id            String
+  body                 String?
+  image_url            String?
+  created_at           DateTime @default(now())
+  sender               User     @relation("MsgSender", fields: [sender_id], references: [id], onDelete: Cascade)
+  conversation_user    User?    @relation("MsgConversation", fields: [conversation_user_id], references: [id], onDelete: Cascade)
+
+  @@index([scope, created_at])
+  @@index([conversation_user_id, created_at])
 }
 
 model GlobalConfig {
