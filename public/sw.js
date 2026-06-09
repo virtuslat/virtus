@@ -5,21 +5,21 @@ self.addEventListener('push', function(event) {
   const data = event.data.json();
 
   const options = {
-    body: data.body || 'Nueva notificación de SmartHogar',
-    icon: data.icon || undefined,
-    badge: data.badge || undefined,
+    body: data.body || 'Nueva notificación de VIRTUS',
+    icon: data.icon || '/logo.png',
+    badge: data.badge || '/logo.png',
     image: data.image || undefined,
-    vibrate: [200, 100, 200],
-    tag: data.tag || 'smarthogar-notification',
+    vibrate: [80, 40, 80],
+    tag: data.tag || 'virtus-notification',
     renotify: true,
     requireInteraction: false,
     data: {
-      url: data.url || '/home'
+      url: data.url || '/chat'
     }
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'SmartHogar', options)
+    self.registration.showNotification(data.title || 'VIRTUS', options)
   );
 });
 

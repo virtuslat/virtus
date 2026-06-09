@@ -2,11 +2,33 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { useLanguage } from '@/context/LanguageContext'
 
 export default function BottomNav() {
   const pathname = usePathname()
   const { t } = useLanguage()
+  const [hasUnread, setHasUnread] = useState(false)
+
+  useEffect(() => {
+    const check = async () => {
+      const token = document.cookie.split('; ').find((r) => r.startsWith('auth_token='))?.split('=')[1]
+      if (!token) return
+      try {
+        const res = await fetch('/api/messages/unread', { headers: { Authorization: `Bearer ${token}` } })
+        if (!res.ok) return
+        const d = await res.json()
+        const seenG = localStorage.getItem('chat_seen_group')
+        const seenA = localStorage.getItem('chat_seen_admin')
+        const newG = d.group_last && (!seenG || new Date(d.group_last) > new Date(seenG))
+        const newA = d.admin_last && (!seenA || new Date(d.admin_last) > new Date(seenA))
+        setHasUnread(Boolean(newG || newA))
+      } catch {}
+    }
+    check()
+    const i = setInterval(check, 15000)
+    return () => clearInterval(i)
+  }, [pathname])
 
   const navItems = [
     {
@@ -79,6 +101,7 @@ export default function BottomNav() {
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
         </svg>
+        {hasUnread && <span className="absolute top-0 right-0 w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-[#0A1A1A]" />}
       </Link>
 
       <nav className="fixed bottom-3 left-3 right-3 z-50 safe-area-inset-bottom lg:hidden">

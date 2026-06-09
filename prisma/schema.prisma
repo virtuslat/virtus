@@ -37,6 +37,11 @@ model User {
   effort_bonus_claims EffortBonusClaim[]
   messages_sent         Message[] @relation("MsgSender")
   messages_conversation Message[] @relation("MsgConversation")
+  message_reactions     MessageReaction[]
+  message_reports       MessageReport[]   @relation("Reporter")
+  push_subscriptions    PushSubscription[]
+  chat_muted            Boolean           @default(false)
+  last_seen             DateTime?
   kyc_status         KycStatus        @default(NOT_SUBMITTED)
   kyc_selfie_url     String?
   kyc_front_url      String?
@@ -250,12 +255,55 @@ model Message {
   sender_id            String
   body                 String?
   image_url            String?
+  reply_to_id          String?
   created_at           DateTime @default(now())
   sender               User     @relation("MsgSender", fields: [sender_id], references: [id], onDelete: Cascade)
   conversation_user    User?    @relation("MsgConversation", fields: [conversation_user_id], references: [id], onDelete: Cascade)
+  reply_to             Message? @relation("MsgReply", fields: [reply_to_id], references: [id], onDelete: SetNull)
+  replies              Message[] @relation("MsgReply")
+  reactions            MessageReaction[]
+  reports              MessageReport[]
 
   @@index([scope, created_at])
   @@index([conversation_user_id, created_at])
+}
+
+model MessageReaction {
+  id         String   @id @default(cuid())
+  message_id String
+  user_id    String
+  emoji      String
+  created_at DateTime @default(now())
+  message    Message  @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([message_id, user_id, emoji])
+  @@index([message_id])
+}
+
+model MessageReport {
+  id          String   @id @default(cuid())
+  message_id  String
+  reporter_id String
+  reason      String?
+  resolved    Boolean  @default(false)
+  created_at  DateTime @default(now())
+  message     Message  @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  reporter    User     @relation("Reporter", fields: [reporter_id], references: [id], onDelete: Cascade)
+
+  @@index([resolved])
+}
+
+model PushSubscription {
+  id         String   @id @default(cuid())
+  user_id    String
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
 }
 
 model GlobalConfig {

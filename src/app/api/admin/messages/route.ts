@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '@/lib/auth/middleware'
+import { sendPushToUser } from '@/lib/push'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +15,9 @@ export async function GET(req: NextRequest) {
 
   const adminId = authResult.user.userId
   const userId = req.nextUrl.searchParams.get('user_id')
+
+  // Marcar admin como visto ahora (para estado "en línea" del soporte)
+  prisma.user.update({ where: { id: adminId }, data: { last_seen: new Date() } as any }).catch(() => {})
 
   try {
     if (userId) {
@@ -30,7 +34,15 @@ export async function GET(req: NextRequest) {
         sender_id: m.sender_id,
         mine: m.sender_id === adminId, // 'mine' = enviado por el admin
       }))
-      return NextResponse.json({ messages })
+      const u = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, username: true, full_name: true, chat_muted: true, last_seen: true } as any,
+      })
+      const online = (u as any)?.last_seen ? Date.now() - new Date((u as any).last_seen).getTime() < 60_000 : false
+      return NextResponse.json({
+        messages,
+        user: u ? { id: (u as any).id, username: (u as any).username, full_name: (u as any).full_name, chat_muted: (u as any).chat_muted, online } : null,
+      })
     }
 
     // Lista de conversaciones: agrupa por usuario y toma la fecha del último mensaje
@@ -46,9 +58,9 @@ export async function GET(req: NextRequest) {
 
     const users = await prisma.user.findMany({
       where: { id: { in: ids } },
-      select: { id: true, username: true, full_name: true, profile_image_url: true },
+      select: { id: true, username: true, full_name: true, profile_image_url: true, last_seen: true } as any,
     })
-    const userMap = new Map(users.map((u) => [u.id, u]))
+    const userMap = new Map(users.map((u: any) => [u.id, u]))
 
     const conversations = await Promise.all(
       grouped.map(async (g) => {
@@ -57,12 +69,14 @@ export async function GET(req: NextRequest) {
           orderBy: { created_at: 'desc' },
           select: { body: true, image_url: true, created_at: true, sender_id: true },
         })
-        const u = userMap.get(g.conversation_user_id as string)
+        const u: any = userMap.get(g.conversation_user_id as string)
+        const online = u?.last_seen ? Date.now() - new Date(u.last_seen).getTime() < 60_000 : false
         return {
           user_id: g.conversation_user_id,
           username: u?.username || '—',
           full_name: u?.full_name || '',
           avatar: u?.profile_image_url || null,
+          online,
           last_body: last?.image_url ? '📷 Imagen' : last?.body || '',
           last_at: g._max.created_at,
           last_from_user: last ? last.sender_id !== adminId : false,
@@ -91,7 +105,7 @@ export async function POST(req: NextRequest) {
   const adminId = authResult.user.userId
 
   try {
-    const { target_user_id, body, image_url } = await req.json()
+    const { target_user_id, body, image_url, reply_to_id } = await req.json()
     if (!target_user_id) {
       return NextResponse.json({ error: 'Falta el usuario destino' }, { status: 400 })
     }
@@ -108,8 +122,19 @@ export async function POST(req: NextRequest) {
         sender_id: adminId,
         body: text || null,
         image_url: img,
-      },
+        reply_to_id: typeof reply_to_id === 'string' ? reply_to_id : null,
+      } as any,
     })
+
+    // Marcar al admin como visto ahora (estado en línea)
+    prisma.user.update({ where: { id: adminId }, data: { last_seen: new Date() } as any }).catch(() => {})
+
+    // Notificar al usuario que soporte le respondió
+    sendPushToUser(target_user_id, {
+      title: '🛟 Soporte VIRTUS',
+      body: img ? '📷 Imagen' : text.slice(0, 80),
+      url: '/chat',
+    }).catch(() => {})
 
     return NextResponse.json({ message })
   } catch (error) {
