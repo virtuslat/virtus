@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/auth/middleware'
 import { verifyBscTransaction, txExistsOnChain } from '@/lib/bsc'
 import { payReferralBonusesWithClient, payBonoRetorno, payInversion, wipeAccumulatedBonuses, payActivationBonus } from '@/lib/referrals'
+import { sendPurchaseEmail } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   const authResult = requireAuth(req)
@@ -168,6 +169,23 @@ export async function POST(req: NextRequest) {
         })
 
         console.log(`[PURCHASE] ${isUpgrade ? 'Upgrade' : 'Activado'} inmediatamente: ${purchase.id}, tx: ${tx_hash}, paquete: ${vipPackage.name}`)
+
+        // Correo de confirmación de compra / upgrade (en segundo plano, no bloquea la respuesta)
+        const buyer = await prisma.user.findUnique({
+          where: { id: authResult.user.userId },
+          select: { email: true, full_name: true },
+        })
+        if (buyer?.email) {
+          sendPurchaseEmail({
+            to: buyer.email,
+            fullName: buyer.full_name,
+            packageName: vipPackage.name,
+            packageValueUsd: vipPackage.investment_bs,
+            amountPaidUsd: amountToVerify,
+            isUpgrade,
+          }).catch(err => console.error('Error enviando email de compra:', err))
+        }
+
         return NextResponse.json({
           message: isUpgrade ? 'Upgrade activado exitosamente' : 'Compra activada exitosamente',
           purchase,

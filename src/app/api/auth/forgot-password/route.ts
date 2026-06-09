@@ -11,7 +11,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email requerido' }, { status: 400 })
     }
 
-    const user = await prisma.user.findUnique({ where: { email } })
+    const user = await prisma.user.findUnique({
+      where: { email: String(email).trim().toLowerCase() },
+    })
 
     // Siempre responder igual aunque el email no exista
     // (evita enumerar qué correos están registrados)

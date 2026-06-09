@@ -25,18 +25,31 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check if username or email already exists
+    // Normalizar para que NO se cuelen duplicados por mayúsculas o espacios
+    const normalizedEmail = String(email).trim().toLowerCase()
+    const normalizedUsername = String(username).trim()
+    const normalizedCarnet = String(carnet).trim()
+
+    // No permitir email, usuario ni C.I. (carnet) duplicados
     const existingUser = await prisma.user.findFirst({
       where: {
-        OR: [{ username }, { email }],
+        OR: [
+          { email: normalizedEmail },
+          { username: normalizedUsername },
+          { carnet: normalizedCarnet },
+        ],
       },
+      select: { email: true, username: true, carnet: true },
     })
 
     if (existingUser) {
-      return NextResponse.json(
-        { error: 'Usuario o email ya registrado' },
-        { status: 400 }
-      )
+      if (existingUser.email === normalizedEmail) {
+        return NextResponse.json({ error: 'Este correo ya está registrado' }, { status: 400 })
+      }
+      if (existingUser.carnet === normalizedCarnet) {
+        return NextResponse.json({ error: 'Esta cédula (C.I.) ya está registrada' }, { status: 400 })
+      }
+      return NextResponse.json({ error: 'Este nombre de usuario ya está en uso' }, { status: 400 })
     }
 
     // Find sponsor if code provided
@@ -63,11 +76,11 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.create({
       data: {
         user_code,
-        username,
-        email,
+        username: normalizedUsername,
+        email: normalizedEmail,
         password_hash,
         full_name,
-        carnet: carnet || null,
+        carnet: normalizedCarnet,
         sponsor_id,
         country: country || null,
         language: language || 'es',
@@ -89,7 +102,23 @@ export async function POST(req: NextRequest) {
       message: 'Usuario registrado exitosamente',
       user_code: user.user_code,
     })
-  } catch (error) {
+  } catch (error: any) {
+    // Red de seguridad: si la BD rechaza por índice único (condición de carrera)
+    if (error?.code === 'P2002') {
+      const target = Array.isArray(error?.meta?.target)
+        ? error.meta.target.join(',')
+        : String(error?.meta?.target || '')
+      if (target.includes('email')) {
+        return NextResponse.json({ error: 'Este correo ya está registrado' }, { status: 400 })
+      }
+      if (target.includes('carnet')) {
+        return NextResponse.json({ error: 'Esta cédula (C.I.) ya está registrada' }, { status: 400 })
+      }
+      if (target.includes('username')) {
+        return NextResponse.json({ error: 'Este nombre de usuario ya está en uso' }, { status: 400 })
+      }
+      return NextResponse.json({ error: 'Ya existe un registro con esos datos' }, { status: 400 })
+    }
     console.error('Signup error:', error)
     return NextResponse.json(
       { error: 'Error al registrar usuario' },

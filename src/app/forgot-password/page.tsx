@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
         return
       }
 
-      setMessage('')
+      setMessage(data.message || 'Si el correo está registrado, recibirás un enlace de recuperación. Revisa tu bandeja de entrada y la carpeta de spam.')
       if (data.reset_link) {
         setResetLink(data.reset_link)
       }
@@ -68,6 +68,12 @@ export default function ForgotPasswordPage() {
           {error && (
             <div className="bg-red-500 bg-opacity-10 border border-red-500 text-red-500 px-4 py-3 rounded-btn">
               {error}
+            </div>
+          )}
+
+          {message && (
+            <div className="bg-emerald-500 bg-opacity-10 border border-emerald-500 text-emerald-400 px-4 py-3 rounded-btn text-sm">
+              {message}
             </div>
           )}
 

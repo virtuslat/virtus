@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyBscTransaction } from '@/lib/bsc'
 import { payReferralBonusesWithClient, payBonoRetorno, payInversion, wipeAccumulatedBonuses, payActivationBonus } from '@/lib/referrals'
+import { sendPurchaseEmail } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +21,10 @@ export async function POST(req: NextRequest) {
         status: 'PENDING_VERIFICATION',
         tx_hash: { not: null },
       },
-      include: { vip_package: true },
+      include: {
+        vip_package: true,
+        user: { select: { email: true, full_name: true } },
+      },
       take: 20,
       orderBy: { created_at: 'asc' },
     })
@@ -93,6 +97,18 @@ export async function POST(req: NextRequest) {
               }
             }
           })
+
+          // Correo de confirmación de compra / upgrade (no bloquea el cron)
+          if (purchase.user?.email) {
+            sendPurchaseEmail({
+              to: purchase.user.email,
+              fullName: purchase.user.full_name,
+              packageName: purchase.vip_package.name,
+              packageValueUsd: purchase.vip_package.investment_bs,
+              amountPaidUsd: purchase.investment_bs,
+              isUpgrade,
+            }).catch(err => console.error('Error enviando email de compra (cron):', err))
+          }
 
           results.push({ id: purchase.id, status: 'ACTIVATED' })
         } else if (result.error === 'INSUFFICIENT_CONFIRMATIONS') {
