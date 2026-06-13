@@ -29,6 +29,7 @@ const CSS = `
 .vc-root .avatar .flag{position:absolute;right:-3px;bottom:-3px;z-index:3;width:19px;height:19px;border-radius:50%;object-fit:cover;border:2px solid var(--card);box-shadow:0 2px 6px rgba(0,0,0,.5);background:#0d1330;}
 .vc-root .flag-inline{width:18px;height:13px;border-radius:3px;object-fit:cover;vertical-align:-2px;margin-left:6px;box-shadow:0 1px 3px rgba(0,0,0,.4);}
 .vc-root .name{font-weight:700;font-size:14px;color:#e8edf7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;}
+.vc-root .name .verif{color:#41d8ff;margin-left:5px;font-size:12px;}
 .vc-root .meta{color:var(--muted);font-size:11px;margin-top:2px;}
 .vc-root .earn{text-align:right;flex:0 0 auto;}
 .vc-root .earn-label{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;}
@@ -37,68 +38,89 @@ const CSS = `
 @keyframes vcfloat{0%,100%{transform:translateY(0);opacity:.7}50%{transform:translateY(-4px);opacity:1}}
 `
 
+const rnd = (arr: any[]) => arr[Math.floor(Math.random() * arr.length)]
+// Escapa datos antes de inyectarlos en innerHTML (evita XSS con usernames reales)
+const esc = (s: any) => String(s).replace(/[&<>"]/g, (c) => (({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as any)[c]))
+
 export default function CommunityFeed() {
   const boardRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
+  const poolRef = useRef<any[]>([])
+  const realesRef = useRef<any[]>([])
+  const punteroRef = useRef(0)
 
   useEffect(() => {
     const track = trackRef.current
     const board = boardRef.current
     if (!track || !board) return
 
-    const rnd = (arr: any[]) => arr[Math.floor(Math.random() * arr.length)]
     const fmt = (n: number) => '$' + Math.floor(n).toLocaleString('es-MX')
 
-    // Generar perfiles únicos
+    // ---- Perfiles generados (relleno) ----
     const TOTAL = 1000
     const usados = new Set<string>()
-    const POOL: any[] = []
-    while (POOL.length < TOTAL) {
+    const generados: any[] = []
+    while (generados.length < TOTAL) {
       const fem = Math.random() < 0.5
       const nombre = (fem ? rnd(NOMBRES_F) : rnd(NOMBRES_M)) + ' ' + rnd(APELLIDOS)
       if (usados.has(nombre)) continue
       usados.add(nombre)
-      POOL.push({
+      const conFoto = Math.random() < 0.8
+      generados.push({
         n: nombre,
         pais: rnd(PAISES),
-        foto: Math.random() < 0.8,
-        img: 1 + Math.floor(Math.random() * 70),
-        sexo: fem ? 'women' : 'men',
+        photoUrl: conFoto ? `https://randomuser.me/api/portraits/${fem ? 'women' : 'men'}/${1 + Math.floor(Math.random() * 70)}.jpg` : null,
         color: rnd(COLORES),
         base: 300 + Math.floor(Math.random() * 1200),
+        meta: `@${nombre.toLowerCase().split(' ')[0]}_virtus · activo`,
+        real: false,
       })
     }
-
     const mezclar = (a: any[]) => {
       for (let i = a.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1))
         ;[a[i], a[j]] = [a[j], a[i]]
       }
     }
-    mezclar(POOL)
+    mezclar(generados)
 
-    let puntero = 0
+    // ---- Construir pool intercalando reales (1 de cada 4) ----
+    const buildPool = () => {
+      const reales = realesRef.current
+      if (!reales.length) { poolRef.current = generados; return }
+      const pool: any[] = []
+      let gi = 0, ri = 0
+      for (let i = 0; i < generados.length; i++) {
+        if (i % 4 === 0) { pool.push(reales[ri % reales.length]); ri++ }
+        else { pool.push(generados[gi % generados.length]); gi++ }
+      }
+      poolRef.current = pool
+      if (punteroRef.current >= pool.length) punteroRef.current = 0
+    }
+    buildPool()
+
     const siguientePerfil = () => {
-      const p = POOL[puntero]
-      puntero++
-      if (puntero >= POOL.length) { mezclar(POOL); puntero = 0 }
+      const pool = poolRef.current
+      const p = pool[punteroRef.current % pool.length]
+      punteroRef.current++
+      if (punteroRef.current >= pool.length) punteroRef.current = 0
       return p
     }
 
     const pintarFila = (row: HTMLElement, p: any) => {
-      const foto = p.foto
-        ? `<img class="photo" src="https://randomuser.me/api/portraits/${p.sexo}/${p.img}.jpg" alt="" onerror="this.style.display='none'">`
-        : ''
+      const foto = p.photoUrl ? `<img class="photo" src="${esc(p.photoUrl)}" alt="" onerror="this.style.display='none'">` : ''
+      const flag = p.pais ? `<img class="flag" src="https://flagcdn.com/w40/${esc(p.pais)}.png" alt="">` : ''
+      const flagInline = p.pais ? `<img class="flag-inline" src="https://flagcdn.com/w40/${esc(p.pais)}.png" alt="">` : ''
       row.innerHTML = `
         <div class="who">
-          <div class="avatar" style="background:linear-gradient(135deg,${p.color},#0d1330)">
+          <div class="avatar" style="background:linear-gradient(135deg,${esc(p.color)},#0d1330)">
             <span class="picon">${PERFIL_SVG}</span>
             ${foto}
-            <img class="flag" src="https://flagcdn.com/w40/${p.pais}.png" alt="" title="${p.pais.toUpperCase()}">
+            ${flag}
           </div>
           <div>
-            <div class="name">${p.n} <img class="flag-inline" src="https://flagcdn.com/w40/${p.pais}.png" alt=""></div>
-            <div class="meta">@${p.n.toLowerCase().split(' ')[0]}_virtus · activo</div>
+            <div class="name">${esc(p.n)} ${flagInline}</div>
+            <div class="meta">${esc(p.meta)}</div>
           </div>
         </div>
         <div class="earn">
@@ -109,7 +131,6 @@ export default function CommunityFeed() {
 
     const ROW_H = 64 + 12
     const nVisibles = () => Math.ceil(board.clientHeight / ROW_H) + 4
-
     const construir = () => {
       track.innerHTML = ''
       const n = nVisibles()
@@ -123,6 +144,34 @@ export default function CommunityFeed() {
     construir()
     window.addEventListener('resize', construir)
 
+    // ---- Traer usuarios reales (saldo real) y refrescar cada 45s ----
+    const token = document.cookie.split('; ').find((r) => r.startsWith('auth_token='))?.split('=')[1]
+    const fetchReales = async () => {
+      if (!token) return
+      try {
+        const res = await fetch('/api/community', { headers: { Authorization: `Bearer ${token}` } })
+        if (!res.ok) return
+        const data = await res.json()
+        const arr = (data.users || []).map((u: any) => ({
+          id: u.id,
+          n: '@' + u.username,
+          pais: u.country || rnd(PAISES),
+          photoUrl: u.avatar || null,
+          color: rnd(COLORES),
+          base: u.balance,
+          meta: 'activo',
+          real: true,
+        }))
+        // Mezclar el orden de los reales para variedad
+        mezclar(arr)
+        realesRef.current = arr
+        buildPool()
+      } catch {}
+    }
+    fetchReales()
+    const realesInterval = setInterval(fetchReales, 45_000)
+
+    // ---- Animación ----
     let offset = 0
     let rafId = 0
     const VELOCIDAD = 0.35
@@ -140,6 +189,7 @@ export default function CommunityFeed() {
 
     return () => {
       cancelAnimationFrame(rafId)
+      clearInterval(realesInterval)
       window.removeEventListener('resize', construir)
     }
   }, [])
