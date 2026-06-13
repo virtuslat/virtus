@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import * as echarts from 'echarts'
-import MarketStats from '@/components/trading/MarketStats'
+import PriceHeader from '@/components/trading/PriceHeader'
 import PerformanceRow from '@/components/trading/PerformanceRow'
 import OrderBook from '@/components/trading/OrderBook'
 import CoinInfo from '@/components/trading/CoinInfo'
@@ -1292,36 +1292,22 @@ export default function FuturosPage() {
       {/* Main Content */}
       <div className="pt-20 px-4 md:px-8 max-w-lg md:max-w-2xl lg:max-w-4xl mx-auto w-full">
 
-        {/* Info Bar */}
-        <div className="flex justify-between items-end mb-4 px-1">
-          <div className="flex flex-col">
-            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">{t('trading.marketPrice')}</span>
-            <div className="text-3xl font-bold font-[Orbitron] tracking-tight text-white flex items-center gap-2 drop-shadow-md">
-              {currentPrice.toFixed(2)}
-              <div className="w-1.5 h-1.5 rounded-full bg-[#34D399] animate-pulse"></div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${wsStatus === 'live' ? 'text-[#34D399] bg-[#34D399]/10 border-[#34D399]/20' : 'text-[#FBBF24] bg-[#FBBF24]/10 border-[#FBBF24]/20'}`}>
-              <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${wsStatus === 'live' ? 'bg-[#34D399]' : 'bg-[#FBBF24]'}`} />
-              {wsStatus === 'live' ? t('trading.live') : 'Reconectando'}
-            </span>
-          </div>
-        </div>
-
         {/* Pestañas superiores */}
         <div className="flex gap-5 overflow-x-auto scrollbar-hide mb-3 border-b border-white/5">
           {([['price', 'Precio'], ['info', 'Información'], ['data', 'Datos de trading'], ['tradex', 'Trade-X']] as const).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setTopTab(id)}
-              className={`relative text-xs font-semibold whitespace-nowrap pb-2 transition-colors ${topTab === id ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+              className={`relative text-sm font-semibold whitespace-nowrap pb-2 transition-colors ${topTab === id ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
             >
               {label}
               {topTab === id && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full bg-[#F0B90B]" />}
             </button>
           ))}
         </div>
+
+        {/* Cabecera: precio grande + estadísticas 24h (tal cual el diseño) */}
+        <PriceHeader pair={currentPair} livePrice={currentPrice} />
 
         {/* Vistas de "Información" / "Datos de trading" / "Trade-X" */}
         {topTab === 'info' && <CoinInfo pair={currentPair} />}
@@ -1335,9 +1321,6 @@ export default function FuturosPage() {
 
         {/* Vista "Precio" (se oculta sin desmontar para conservar el gráfico) */}
         <div className={topTab === 'price' ? '' : 'hidden'}>
-        {/* Estadísticas 24h */}
-        <MarketStats pair={currentPair} />
-
         {/* Timeframes */}
         <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide mb-3 border-b border-white/5">
           {TIMEFRAMES.map(time => (
