@@ -7,6 +7,12 @@ interface Trade { p: number; q: number; t: number; buy: boolean }
 
 const ROWS = 14
 
+const NETWORKS: Record<string, string> = {
+  BTC: 'Bitcoin', ETH: 'Ethereum (ERC-20)', BNB: 'BNB Smart Chain (BEP-20)',
+  SOL: 'Solana', XRP: 'XRP Ledger', ADA: 'Cardano', DOGE: 'Dogecoin',
+  TRX: 'Tron (TRC-20)', MATIC: 'Polygon', DOT: 'Polkadot', LTC: 'Litecoin', AVAX: 'Avalanche',
+}
+
 const fmtQty = (n: number) => {
   if (n >= 1000) return n.toLocaleString('en-US', { maximumFractionDigits: 1 })
   return n.toFixed(3)
@@ -26,7 +32,7 @@ const aggregate = (levels: Level[], group: number, isBid: boolean): Level[] => {
 }
 
 export default function OrderBook({ pair }: { pair: string }) {
-  const [tab, setTab] = useState<'book' | 'depth' | 'trades'>('book')
+  const [tab, setTab] = useState<'book' | 'depth' | 'trades' | 'red'>('book')
   const [group, setGroup] = useState(0.01)
   const [bids, setBids] = useState<Level[]>([])
   const [asks, setAsks] = useState<Level[]>([])
@@ -98,6 +104,7 @@ export default function OrderBook({ pair }: { pair: string }) {
         <Tab id="book" label="Libro" />
         <Tab id="depth" label="Profundidad" />
         <Tab id="trades" label="Trades" />
+        <Tab id="red" label="Red" />
       </div>
 
       {tab === 'book' && (
@@ -171,6 +178,36 @@ export default function OrderBook({ pair }: { pair: string }) {
           </div>
         </div>
       )}
+
+      {tab === 'red' && <RedPanel pair={pair} bids={bidRows} asks={askRows} />}
+    </div>
+  )
+}
+
+// Panel "Red": info de red y mercado (mejor compra/venta, spread, precio medio)
+function RedPanel({ pair, bids, asks }: { pair: string; bids: Level[]; asks: Level[] }) {
+  const base = pair.split('/')[0]
+  const quote = pair.split('/')[1]
+  const bestBid = bids[0] ? +bids[0][0] : 0
+  const bestAsk = asks[0] ? +asks[0][0] : 0
+  const spread = bestAsk && bestBid ? bestAsk - bestBid : 0
+  const mid = bestAsk && bestBid ? (bestAsk + bestBid) / 2 : 0
+  const spreadPct = mid ? (spread / mid) * 100 : 0
+  const Row = ({ label, value, color }: { label: string; value: any; color?: string }) => (
+    <div className="flex justify-between py-2 border-b border-white/5">
+      <span className="text-gray-500 text-xs">{label}</span>
+      <span className={`text-xs font-[Orbitron] ${color || 'text-white'}`}>{value}</span>
+    </div>
+  )
+  return (
+    <div className="py-1">
+      <Row label="Red" value={NETWORKS[base] || base} />
+      <Row label="Activo" value={`${base} / ${quote}`} />
+      <Row label="Mejor compra" value={bestBid ? bestBid.toFixed(2) : '—'} color="text-[#34D399]" />
+      <Row label="Mejor venta" value={bestAsk ? bestAsk.toFixed(2) : '—'} color="text-[#FF5A5A]" />
+      <Row label="Spread" value={`${spread.toFixed(2)} (${spreadPct.toFixed(3)}%)`} />
+      <Row label="Precio medio" value={mid ? mid.toFixed(2) : '—'} />
+      <p className="text-[10px] text-gray-600 mt-3">Información de red y mercado en tiempo real.</p>
     </div>
   )
 }

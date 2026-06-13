@@ -5,6 +5,8 @@ import * as echarts from 'echarts'
 import MarketStats from '@/components/trading/MarketStats'
 import PerformanceRow from '@/components/trading/PerformanceRow'
 import OrderBook from '@/components/trading/OrderBook'
+import CoinInfo from '@/components/trading/CoinInfo'
+import TradingData from '@/components/trading/TradingData'
 import {
   ArrowUp,
   ArrowDown,
@@ -100,6 +102,7 @@ export default function FuturosPage() {
   const [pendingType, setPendingType] = useState<'CALL' | 'PUT' | null>(null)
   const [showSidebar, setShowSidebar] = useState(false)
   const [chartFullscreen, setChartFullscreen] = useState(false)
+  const [topTab, setTopTab] = useState<'price' | 'info' | 'data' | 'tradex'>('price')
 
   // Inputs
   const [tradeAmount, setTradeAmount] = useState<number>(10)
@@ -967,6 +970,14 @@ export default function FuturosPage() {
     return () => clearTimeout(id)
   }, [chartFullscreen])
 
+  // Al volver a "Precio", el gráfico estaba oculto → redimensionar
+  useEffect(() => {
+    if (topTab === 'price') {
+      const id = setTimeout(() => chartInstance.current?.resize(), 80)
+      return () => clearTimeout(id)
+    }
+  }, [topTab])
+
   // Chart Rendering Effect (con throttle ~5fps para fluidez)
   useEffect(() => {
     candleDataRef.current = candleData
@@ -1298,6 +1309,32 @@ export default function FuturosPage() {
           </div>
         </div>
 
+        {/* Pestañas superiores */}
+        <div className="flex gap-5 overflow-x-auto scrollbar-hide mb-3 border-b border-white/5">
+          {([['price', 'Precio'], ['info', 'Información'], ['data', 'Datos de trading'], ['tradex', 'Trade-X']] as const).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setTopTab(id)}
+              className={`relative text-xs font-semibold whitespace-nowrap pb-2 transition-colors ${topTab === id ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              {label}
+              {topTab === id && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full bg-[#F0B90B]" />}
+            </button>
+          ))}
+        </div>
+
+        {/* Vistas de "Información" / "Datos de trading" / "Trade-X" */}
+        {topTab === 'info' && <CoinInfo pair={currentPair} />}
+        {topTab === 'data' && <TradingData pair={currentPair} />}
+        {topTab === 'tradex' && (
+          <div className="bg-[#0A1119] border border-white/5 rounded-2xl p-5 mb-6 text-center">
+            <p className="text-sm text-white font-bold mb-1">Modo Trade-X</p>
+            <p className="text-xs text-gray-500">Opera directamente abajo con los botones <span className="text-[#34D399] font-bold">Comprar</span> / <span className="text-[#FF5A5A] font-bold">Vender</span>.</p>
+          </div>
+        )}
+
+        {/* Vista "Precio" (se oculta sin desmontar para conservar el gráfico) */}
+        <div className={topTab === 'price' ? '' : 'hidden'}>
         {/* Estadísticas 24h */}
         <MarketStats pair={currentPair} />
 
@@ -1369,8 +1406,9 @@ export default function FuturosPage() {
         {/* Rendimiento por período */}
         <PerformanceRow pair={currentPair} />
 
-        {/* Libro de órdenes (Libro / Profundidad / Trades) */}
+        {/* Libro de órdenes (Libro / Profundidad / Trades / Red) */}
         <OrderBook pair={currentPair} />
+        </div>
 
         {/* Tabs - Segmented Control */}
         <div className="bg-[#131B26] p-1 rounded-xl flex mb-6 border border-white/5 shadow-inner">
