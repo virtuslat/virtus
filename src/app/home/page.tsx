@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/Toast'
 import ScreenshotProtection from '@/components/ui/ScreenshotProtection'
 import EarningsChart from '@/components/ui/EarningsChart'
 import { useLanguage } from '@/context/LanguageContext'
-import MarketTabs from '@/components/ui/MarketTabs'
+import CommunityFeed from '@/components/ui/CommunityFeed'
 import LogoutButton from '@/components/ui/LogoutButton'
 import LanguageButton from '@/components/ui/LanguageButton'
 
@@ -774,7 +774,7 @@ export default function HomePage() {
         </div>
 
         {/* Market Data Section */}
-        <MarketTabs />
+        <CommunityFeed />
 
       </div>
 
