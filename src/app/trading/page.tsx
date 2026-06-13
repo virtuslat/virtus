@@ -1335,10 +1335,10 @@ export default function FuturosPage() {
           ))}
         </div>
 
-        {/* Chart Container (sin caja, fluido como Binance) */}
+        {/* Chart Container (sin caja, borde a borde como Binance) */}
         <div className={chartFullscreen
           ? 'fixed inset-0 z-[120] bg-[#060B10] p-2 overflow-hidden'
-          : 'h-[380px] md:h-[480px] lg:h-[580px] relative overflow-hidden'}>
+          : 'h-[380px] md:h-[480px] lg:h-[580px] relative overflow-hidden -mx-4 md:-mx-8'}>
           {/* Chart Glows */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-[#34D399]/5 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#00A3FF]/5 rounded-full blur-3xl pointer-events-none" />
