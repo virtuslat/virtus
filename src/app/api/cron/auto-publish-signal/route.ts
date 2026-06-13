@@ -30,8 +30,18 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const pair = PAIRS[Math.floor(Math.random() * PAIRS.length)]
-    const direction = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)]
+    // Parámetros opcionales que puede enviar el cron (label, pair, direction)
+    let body: any = {}
+    try { body = await req.json() } catch {}
+    const pair = (typeof body.pair === 'string' && PAIRS.includes(body.pair))
+      ? body.pair
+      : PAIRS[Math.floor(Math.random() * PAIRS.length)]
+    const direction = (body.direction === 'CALL' || body.direction === 'PUT')
+      ? body.direction
+      : DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)]
+    const label = (typeof body.label === 'string' && body.label.trim())
+      ? body.label.trim().slice(0, 60)
+      : null
     const code = generateCode()
 
     // Close any existing ACTIVE signals
@@ -51,7 +61,7 @@ export async function POST(req: NextRequest) {
         code,
         pair,
         direction,
-        label: null,
+        label,
         status: 'ACTIVE',
       },
     })
