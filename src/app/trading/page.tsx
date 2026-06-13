@@ -85,7 +85,8 @@ export default function FuturosPage() {
   const [candleData, setCandleData] = useState<Candle[]>([])
   const [selectedTime, setSelectedTime] = useState('60s')
   const [wsStatus, setWsStatus] = useState<'live' | 'connecting'>('connecting')
-  const [indicator, setIndicator] = useState<'MA' | 'EMA' | 'BOLL'>('MA')
+  const [indicator, setIndicator] = useState<'MA' | 'EMA' | 'BOLL' | 'SAR'>('MA')
+  const [subIndicator, setSubIndicator] = useState<'VOL' | 'MACD' | 'RSI'>('VOL')
 
 
   // User Data (Persisted)
@@ -532,6 +533,75 @@ export default function FuturosPage() {
     })
     const values = data.map(d => [d.open, d.close, d.low, d.high])
     const volumes = data.map((d, i) => [i, d.volume, d.close >= d.open ? 1 : -1])
+    const closes = values.map(v => v[1])
+
+    // EMA numérica (para MACD)
+    const emaNum = (period: number) => {
+      const k = 2 / (period + 1)
+      const out: (number | null)[] = []
+      let prev: number | null = null
+      for (let i = 0; i < closes.length; i++) {
+        if (i < period - 1) { out.push(null); continue }
+        if (prev === null) { let s = 0; for (let j = 0; j < period; j++) s += closes[i - j]; prev = s / period }
+        else prev = closes[i] * k + prev * (1 - k)
+        out.push(prev)
+      }
+      return out
+    }
+    // MACD (12, 26, 9)
+    const calcMACD = () => {
+      const e12 = emaNum(12), e26 = emaNum(26)
+      const dif = closes.map((_, i) => (e12[i] != null && e26[i] != null) ? +(e12[i]! - e26[i]!).toFixed(3) : ('-' as any))
+      const dea: (number | string)[] = []
+      const k = 2 / 10; let prev: number | null = null
+      for (let i = 0; i < dif.length; i++) {
+        const d = dif[i]
+        if (d === '-') { dea.push('-'); continue }
+        prev = prev === null ? (d as number) : (d as number) * k + prev * (1 - k)
+        dea.push(+prev.toFixed(3))
+      }
+      const hist = dif.map((d, i) => (d !== '-' && dea[i] !== '-') ? +(((d as number) - (dea[i] as number)) * 2).toFixed(3) : ('-' as any))
+      return { dif, dea, hist }
+    }
+    // RSI (14, suavizado de Wilder)
+    const calcRSI = (period = 14) => {
+      const res: (number | string)[] = new Array(closes.length).fill('-')
+      if (closes.length <= period) return res
+      let avgGain = 0, avgLoss = 0
+      for (let i = 1; i <= period; i++) { const ch = closes[i] - closes[i - 1]; if (ch >= 0) avgGain += ch; else avgLoss -= ch }
+      avgGain /= period; avgLoss /= period
+      res[period] = avgLoss === 0 ? 100 : +(100 - 100 / (1 + avgGain / avgLoss)).toFixed(2)
+      for (let i = period + 1; i < closes.length; i++) {
+        const ch = closes[i] - closes[i - 1]
+        avgGain = (avgGain * (period - 1) + (ch > 0 ? ch : 0)) / period
+        avgLoss = (avgLoss * (period - 1) + (ch < 0 ? -ch : 0)) / period
+        res[i] = avgLoss === 0 ? 100 : +(100 - 100 / (1 + avgGain / avgLoss)).toFixed(2)
+      }
+      return res
+    }
+    // Parabolic SAR (0.02, 0.2). values = [open, close, low(2), high(3)]
+    const calcSAR = () => {
+      const step = 0.02, maxAf = 0.2
+      const res: (number | string)[] = new Array(values.length).fill('-')
+      if (values.length < 2) return res
+      let isUp = values[1][1] >= values[0][1]
+      let af = step
+      let ep = isUp ? values[0][3] : values[0][2]
+      let sar = isUp ? values[0][2] : values[0][3]
+      for (let i = 1; i < values.length; i++) {
+        const high = values[i][3], low = values[i][2]
+        sar = sar + af * (ep - sar)
+        if (isUp) {
+          if (low < sar) { isUp = false; sar = ep; ep = low; af = step }
+          else if (high > ep) { ep = high; af = Math.min(af + step, maxAf) }
+        } else {
+          if (high > sar) { isUp = true; sar = ep; ep = high; af = step }
+          else if (low < ep) { ep = low; af = Math.min(af + step, maxAf) }
+        }
+        res[i] = +sar.toFixed(2)
+      }
+      return res
+    }
 
     // Media móvil sobre el precio de cierre (índice 1 de values)
     const calculateMA = (dayCount: number) => {
@@ -625,6 +695,13 @@ export default function FuturosPage() {
       ]
       titleText = `{a|BOLL(20,2)}  {b|UP: ${fmt(lastVal(b.up))}}  {c|LOW: ${fmt(lastVal(b.low))}}`
       titleRich = { a: { color: cMid, ...richBase }, b: { color: cUp, ...richBase }, c: { color: cLow, ...richBase } }
+    } else if (indicator === 'SAR') {
+      const sar = calcSAR()
+      overlaySeries = [
+        { name: 'SAR', type: 'scatter', data: sar, symbolSize: 2.5, itemStyle: { color: '#cfd6dd' } },
+      ]
+      titleText = `{a|SAR (0.02, 0.2)}`
+      titleRich = { a: { color: '#cfd6dd', ...richBase } }
     } else {
       overlaySeries = [
         { name: 'MA7', type: 'line', data: ma7, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA7 } },
@@ -635,14 +712,50 @@ export default function FuturosPage() {
       titleRich = { a: { color: cMA7, ...richBase }, b: { color: cMA25, ...richBase }, c: { color: cMA99, ...richBase } }
     }
 
+    // Panel inferior: VOL / MACD / RSI
+    const volAxis = { scale: true, gridIndex: 1, splitNumber: 2, position: 'right' as const, axisLabel: { show: true, color: '#8a929b', fontSize: 8, fontFamily: 'Orbitron' }, axisLine: { show: false }, splitLine: { show: false } }
+    let bottomSeries: any[] = []
+    let bottomYAxis: any = volAxis
+    let subTitle = 'VOL'
+    if (subIndicator === 'MACD') {
+      const { dif, dea, hist } = calcMACD()
+      bottomSeries = [
+        { name: 'MACD', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: hist, itemStyle: { color: (p: any) => (p.value >= 0 ? 'rgba(0,212,157,0.6)' : 'rgba(255,90,90,0.6)') } },
+        { name: 'DIF', type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: dif, smooth: true, showSymbol: false, lineStyle: { width: 1, color: '#F0B90B' } },
+        { name: 'DEA', type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: dea, smooth: true, showSymbol: false, lineStyle: { width: 1, color: '#7C5CFC' } },
+      ]
+      subTitle = 'MACD (12,26,9)'
+    } else if (subIndicator === 'RSI') {
+      const rsi = calcRSI(14)
+      bottomSeries = [
+        { name: 'RSI', type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: rsi, smooth: true, showSymbol: false, lineStyle: { width: 1, color: '#F0B90B' },
+          markLine: { symbol: ['none', 'none'], silent: true, data: [{ yAxis: 70 }, { yAxis: 30 }], lineStyle: { color: '#8a929b', type: 'dashed', width: 0.5, opacity: 0.5 }, label: { show: false } } },
+      ]
+      bottomYAxis = { gridIndex: 1, min: 0, max: 100, splitNumber: 2, position: 'right' as const, axisLabel: { show: true, color: '#8a929b', fontSize: 8, fontFamily: 'Orbitron' }, axisLine: { show: false }, splitLine: { show: false } }
+      subTitle = 'RSI (14)'
+    } else {
+      bottomSeries = [
+        { name: 'Volume', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: volumes, itemStyle: { color: (params: any) => params.value[2] === 1 ? 'rgba(0, 212, 157, 0.45)' : 'rgba(255, 90, 90, 0.45)' } },
+        { name: 'VolMA5', type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: calculateVolMA(5), smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA7, opacity: 0.7 } },
+        { name: 'VolMA10', type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: calculateVolMA(10), smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA99, opacity: 0.7 } },
+      ]
+    }
+
     const option = {
       backgroundColor: 'transparent',
       animation: false,
-      title: {
-        left: 4, top: 0,
-        text: titleText,
-        textStyle: { fontSize: 10, fontWeight: 'normal' as const, fontFamily: 'Orbitron', rich: titleRich },
-      },
+      title: [
+        {
+          left: 4, top: 0,
+          text: titleText,
+          textStyle: { fontSize: 10, fontWeight: 'normal' as const, fontFamily: 'Orbitron', rich: titleRich },
+        },
+        {
+          left: 4, top: '62%',
+          text: subTitle,
+          textStyle: { fontSize: 9, fontWeight: 'normal' as const, fontFamily: 'Orbitron', color: '#8a929b' },
+        },
+      ],
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'cross', lineStyle: { color: '#8a929b', width: 1, opacity: 0.6 } },
@@ -692,11 +805,7 @@ export default function FuturosPage() {
           splitLine: { show: true, lineStyle: { color: 'rgba(138,146,155,0.08)' } },
           axisLabel: { color: '#8a929b', fontSize: 9, fontFamily: 'Orbitron' }
         },
-        {
-          scale: true, gridIndex: 1, splitNumber: 2, position: 'right',
-          axisLabel: { show: true, color: '#8a929b', fontSize: 8, fontFamily: 'Orbitron' },
-          axisLine: { show: false }, splitLine: { show: false }
-        }
+        bottomYAxis
       ],
       series: [
         {
@@ -730,12 +839,7 @@ export default function FuturosPage() {
           }
         },
         ...overlaySeries,
-        {
-          name: 'Volume', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: volumes,
-          itemStyle: { color: (params: any) => params.value[2] === 1 ? 'rgba(0, 212, 157, 0.45)' : 'rgba(255, 90, 90, 0.45)' }
-        },
-        { name: 'VolMA5', type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: calculateVolMA(5), smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA7, opacity: 0.7 } },
-        { name: 'VolMA10', type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: calculateVolMA(10), smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA99, opacity: 0.7 } }
+        ...bottomSeries,
       ]
     }
 
@@ -878,7 +982,7 @@ export default function FuturosPage() {
       if (renderTimerRef.current) clearTimeout(renderTimerRef.current)
       renderTimerRef.current = setTimeout(run, 180 - elapsed)
     }
-  }, [candleData, currentPrice, indicator])
+  }, [candleData, currentPrice, indicator, subIndicator])
 
 
   // --- Trading Logic Loop (Check Orders) ---
@@ -1214,8 +1318,8 @@ export default function FuturosPage() {
         </div>
 
         {/* Indicadores */}
-        <div className="flex gap-2 mb-3">
-          {(['MA', 'EMA', 'BOLL'] as const).map((ind) => (
+        <div className="flex gap-2 mb-3 flex-wrap items-center">
+          {(['MA', 'EMA', 'BOLL', 'SAR'] as const).map((ind) => (
             <button
               key={ind}
               onClick={() => setIndicator(ind)}
@@ -1224,6 +1328,18 @@ export default function FuturosPage() {
                 : 'bg-[#131B26] text-gray-500 border border-white/5 hover:text-gray-300'}`}
             >
               {ind}
+            </button>
+          ))}
+          <span className="w-px h-4 bg-white/10 mx-0.5" />
+          {(['VOL', 'MACD', 'RSI'] as const).map((si) => (
+            <button
+              key={si}
+              onClick={() => setSubIndicator(si)}
+              className={`px-3 py-1 rounded-lg text-[10px] uppercase font-bold transition-all ${subIndicator === si
+                ? 'bg-[#34D399] text-[#060B10]'
+                : 'bg-[#131B26] text-gray-500 border border-white/5 hover:text-gray-300'}`}
+            >
+              {si}
             </button>
           ))}
         </div>

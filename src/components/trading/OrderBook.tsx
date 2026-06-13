@@ -12,8 +12,22 @@ const fmtQty = (n: number) => {
   return n.toFixed(3)
 }
 
+// Agrupa niveles del libro por tamaño de tick (0.01 = sin agrupar)
+const aggregate = (levels: Level[], group: number, isBid: boolean): Level[] => {
+  if (group <= 0.01) return levels
+  const map = new Map<number, number>()
+  for (const [p, q] of levels) {
+    const bucket = isBid ? Math.floor(+p / group) * group : Math.ceil(+p / group) * group
+    map.set(bucket, (map.get(bucket) || 0) + +q)
+  }
+  const arr: Level[] = Array.from(map.entries()).map(([p, q]) => [p.toFixed(2), String(q)])
+  arr.sort((a, b) => (isBid ? +b[0] - +a[0] : +a[0] - +b[0]))
+  return arr
+}
+
 export default function OrderBook({ pair }: { pair: string }) {
   const [tab, setTab] = useState<'book' | 'depth' | 'trades'>('book')
+  const [group, setGroup] = useState(0.01)
   const [bids, setBids] = useState<Level[]>([])
   const [asks, setAsks] = useState<Level[]>([])
   const [trades, setTrades] = useState<Trade[]>([])
@@ -61,9 +75,9 @@ export default function OrderBook({ pair }: { pair: string }) {
     return () => { closed = true; if (timer) clearTimeout(timer); try { tradeWs.current?.close() } catch {} }
   }, [tab, pair])
 
-  // Cálculos de profundidad acumulada
-  const bidRows = bids.slice(0, ROWS)
-  const askRows = asks.slice(0, ROWS)
+  // Cálculos de profundidad acumulada (con agrupación de precio)
+  const bidRows = aggregate(bids, group, true).slice(0, ROWS)
+  const askRows = aggregate(asks, group, false).slice(0, ROWS)
   let cb = 0; const bidCum = bidRows.map(([, q]) => (cb += +q))
   let ca = 0; const askCum = askRows.map(([, q]) => (ca += +q))
   const totalBid = bidCum[bidCum.length - 1] || 0
@@ -88,6 +102,15 @@ export default function OrderBook({ pair }: { pair: string }) {
 
       {tab === 'book' && (
         <>
+          {/* Agrupación de precio */}
+          <div className="flex justify-end mb-2">
+            <select value={group} onChange={(e) => setGroup(+e.target.value)} className="bg-[#131B26] text-gray-400 text-[10px] rounded px-2 py-1 border border-white/5 focus:outline-none">
+              <option value={0.01}>0.01</option>
+              <option value={0.1}>0.1</option>
+              <option value={1}>1</option>
+              <option value={10}>10</option>
+            </select>
+          </div>
           {/* Barra de ratio compra/venta */}
           <div className="flex items-center gap-2 mb-3 text-[11px] font-bold">
             <span className="text-[#34D399]">{greenPct.toFixed(2)}%</span>
