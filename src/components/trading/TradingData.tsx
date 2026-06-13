@@ -61,7 +61,7 @@ export default function TradingData({ pair }: { pair: string }) {
       <Row label={`Volumen 24h (${base})`} value={d ? fmtBig(+d.volume) : '—'} />
       <Row label={`Volumen 24h (${quote})`} value={d ? fmtBig(+d.quoteVolume) : '—'} />
       <Row label="Número de operaciones 24h" value={d ? Number(d.count).toLocaleString('en-US') : '—'} />
-      <p className="text-[10px] text-gray-600 mt-3">Datos en tiempo real de Binance.</p>
+      <p className="text-[10px] text-gray-600 mt-3">Datos del mercado en tiempo real.</p>
     </div>
   )
 }

@@ -62,7 +62,7 @@ export default function CoinInfo({ pair }: { pair: string }) {
       <Row label="Tamaño de tick (precio)" value={filt('PRICE_FILTER', 'tickSize')} />
       <Row label="Tamaño de lote (cantidad)" value={filt('LOT_SIZE', 'stepSize')} />
       <Row label="Orden mínima" value={filt('NOTIONAL', 'minNotional')} />
-      <p className="text-[10px] text-gray-600 mt-3">Datos en tiempo real de Binance.</p>
+      <p className="text-[10px] text-gray-600 mt-3">Datos del mercado en tiempo real.</p>
     </div>
   )
 }
