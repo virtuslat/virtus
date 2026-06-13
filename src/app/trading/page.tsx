@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useRef } from 'react'
 import * as echarts from 'echarts'
+import MarketStats from '@/components/trading/MarketStats'
+import PerformanceRow from '@/components/trading/PerformanceRow'
+import OrderBook from '@/components/trading/OrderBook'
 import {
   ArrowUp,
   ArrowDown,
@@ -1191,6 +1194,9 @@ export default function FuturosPage() {
           </div>
         </div>
 
+        {/* Estadísticas 24h */}
+        <MarketStats pair={currentPair} />
+
         {/* Timeframes */}
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-4 mask-fade-sides">
           {TIMEFRAMES.map(time => (
@@ -1249,6 +1255,12 @@ export default function FuturosPage() {
 
           <div ref={chartRef} className="w-full h-full relative z-10"></div>
         </div>
+
+        {/* Rendimiento por período */}
+        <PerformanceRow pair={currentPair} />
+
+        {/* Libro de órdenes (Libro / Profundidad / Trades) */}
+        <OrderBook pair={currentPair} />
 
         {/* Tabs - Segmented Control */}
         <div className="bg-[#131B26] p-1 rounded-xl flex mb-6 border border-white/5 shadow-inner">
