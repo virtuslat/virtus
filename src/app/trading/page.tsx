@@ -95,6 +95,7 @@ export default function FuturosPage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [pendingType, setPendingType] = useState<'CALL' | 'PUT' | null>(null)
   const [showSidebar, setShowSidebar] = useState(false)
+  const [chartFullscreen, setChartFullscreen] = useState(false)
 
   // Inputs
   const [tradeAmount, setTradeAmount] = useState<number>(10)
@@ -850,6 +851,15 @@ export default function FuturosPage() {
     } catch {}
   }, [currentPair, selectedTime])
 
+  // Pantalla completa del gráfico: redimensionar ECharts y bloquear scroll del body
+  useEffect(() => {
+    const id = setTimeout(() => chartInstance.current?.resize(), 80)
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = chartFullscreen ? 'hidden' : ''
+    }
+    return () => clearTimeout(id)
+  }, [chartFullscreen])
+
   // Chart Rendering Effect (con throttle ~5fps para fluidez)
   useEffect(() => {
     candleDataRef.current = candleData
@@ -1213,10 +1223,29 @@ export default function FuturosPage() {
         </div>
 
         {/* Chart Container */}
-        <div className="h-[320px] md:h-[420px] lg:h-[500px] rounded-2xl bg-[#0A1119] border border-white/5 relative mb-6 overflow-hidden shadow-2xl">
+        <div className={chartFullscreen
+          ? 'fixed inset-0 z-[120] bg-[#0A1119] p-2 overflow-hidden'
+          : 'h-[380px] md:h-[480px] lg:h-[580px] rounded-2xl bg-[#0A1119] border border-white/5 relative mb-6 overflow-hidden shadow-2xl'}>
           {/* Chart Glows */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-[#34D399]/5 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#00A3FF]/5 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Botón pantalla completa */}
+          <button
+            onClick={() => setChartFullscreen(f => !f)}
+            className="absolute top-2 right-2 z-30 w-9 h-9 rounded-lg bg-[#131B26]/80 backdrop-blur border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-[#131B26] transition active:scale-95"
+            aria-label={chartFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          >
+            {chartFullscreen ? (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3" />
+              </svg>
+            ) : (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />
+              </svg>
+            )}
+          </button>
 
           <div ref={chartRef} className="w-full h-full relative z-10"></div>
         </div>
