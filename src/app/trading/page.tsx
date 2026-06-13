@@ -112,6 +112,7 @@ export default function FuturosPage() {
 
   // Signal Trading
   const [signalCode, setSignalCode] = useState('')
+  const [copiedCode, setCopiedCode] = useState(false)
   const [activeSignalInfo, setActiveSignalInfo] = useState<{ id: string; code: string; label: string | null; pair: string; direction: string; created_at: string } | null>(null)
   const [alreadyExecuted, setAlreadyExecuted] = useState(false)
   const [signalExecuting, setSignalExecuting] = useState(false)
@@ -1493,40 +1494,55 @@ export default function FuturosPage() {
             <div className="p-4 space-y-3">
               {/* Active signal info - Compact & Themed */}
               {activeSignalInfo ? (
-                <div className="bg-[#131B26] border border-[#34D399]/20 rounded-xl p-4 text-center shadow-lg relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-[#34D399]"></div>
-                  <p className="text-[9px] uppercase text-[#34D399] font-bold tracking-[0.2em] mb-2">{t('trading.activeCode')}</p>
+                <div className="bg-gradient-to-br from-[#131B26] to-[#0e1822] border border-[#34D399]/25 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#34D399] to-[#059669]"></div>
 
-                  {/* Barra de progreso 5 minutos - Thinner */}
-                  <div className="w-full bg-black/40 rounded-full h-1 mb-3 overflow-hidden">
+                  {/* Encabezado: señal activa + dirección */}
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[9px] uppercase text-[#34D399] font-bold tracking-[0.2em] flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] animate-pulse" />
+                      {t('trading.activeCode')}
+                    </span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${activeSignalInfo.direction === 'CALL'
+                      ? 'text-[#34D399] bg-[#34D399]/10'
+                      : 'text-[#FF5A5A] bg-[#FF5A5A]/10'}`}>
+                      {activeSignalInfo.direction === 'CALL'
+                        ? <><ArrowUp size={11} strokeWidth={3} /> {t('trading.buyRise')}</>
+                        : <><ArrowDown size={11} strokeWidth={3} /> {t('trading.sellFall')}</>}
+                    </span>
+                  </div>
+
+                  {/* Etiqueta de la señal */}
+                  {activeSignalInfo.label && <p className="text-sm font-semibold text-white/90 mb-2.5 leading-snug">{activeSignalInfo.label}</p>}
+
+                  {/* Código copiable: toca en cualquier parte para copiar */}
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(activeSignalInfo.code)
+                      setCopiedCode(true)
+                      setTimeout(() => setCopiedCode(false), 1500)
+                    }}
+                    className="w-full group flex items-center justify-between gap-2 bg-[#0A1119] border border-white/10 hover:border-[#34D399]/40 rounded-xl px-3.5 py-2.5 transition-all active:scale-[0.99]"
+                  >
+                    <div className="flex flex-col items-start min-w-0">
+                      <span className="text-[8px] text-gray-500 uppercase tracking-wider">{t('trading.copy')}</span>
+                      <span className="text-sm font-bold text-white tracking-[0.18em] font-[Orbitron] truncate">{activeSignalInfo.code}</span>
+                    </div>
+                    <span className={`flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all flex-shrink-0 ${copiedCode ? 'bg-[#34D399] text-[#060B10]' : 'bg-[#34D399]/10 text-[#34D399] group-hover:bg-[#34D399]/20'}`}>
+                      {copiedCode ? (
+                        <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg> Copiado</>
+                      ) : (
+                        <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg> {t('trading.copy')}</>
+                      )}
+                    </span>
+                  </button>
+
+                  {/* Barra de progreso 5 minutos */}
+                  <div className="w-full bg-black/40 rounded-full h-1 mt-3 overflow-hidden">
                     <div
-                      className="h-full bg-[#34D399] transition-all duration-1000 ease-linear"
+                      className="h-full bg-gradient-to-r from-[#34D399] to-[#059669] transition-all duration-1000 ease-linear"
                       style={{ width: `${codeProgress}%` }}
                     ></div>
-                  </div>
-
-                  {activeSignalInfo.label && <h4 className="text-sm font-bold text-white mb-2">{activeSignalInfo.label}</h4>}
-
-                  <div className="flex items-center justify-center gap-2 mb-3">
-                    <p className="text-xl font-bold text-white tracking-widest font-[Orbitron]">{activeSignalInfo.code}</p>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(activeSignalInfo.code)
-                        // Toast handling would go here
-                      }}
-                      className="px-2 py-1 rounded text-[10px] font-bold bg-[#34D399]/10 text-[#34D399] border border-[#34D399]/20 hover:bg-[#34D399]/20 transition-colors"
-                    >
-                      {t('trading.copy')}
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-center gap-2 mb-1">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${activeSignalInfo.direction === 'CALL'
-                      ? 'text-[#34D399] bg-[#34D399]/5 border-[#34D399]/20'
-                      : 'text-[#FF5A5A] bg-[#FF5A5A]/5 border-[#FF5A5A]/20'
-                      }`}>
-                      {activeSignalInfo.direction === 'CALL' ? t('trading.buyRise') : t('trading.sellFall')}
-                    </span>
                   </div>
                 </div>
               ) : (
