@@ -9,18 +9,17 @@ const APELLIDOS = ['Mendoza', 'Ríos', 'Torres', 'Herrera', 'Núñez', 'Rojas', 
 const COLORES = ['#5b8cff', '#ff6b9d', '#ffb86b', '#22e07a', '#a78bff', '#41d8ff', '#ff7a7a', '#ffd166', '#4ade80', '#f472b6']
 const PERFIL_SVG = '<svg viewBox="0 0 24 24" fill="white"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4 0-9 2-9 6v1h18v-1c0-4-5-6-9-6Z"/></svg>'
 
+const ROW_H = 76 // 64 alto + 12 margen
+
 const CSS = `
 .vc-root{--green:#22e07a;--green-soft:#3fff9a;--card:#16203a;--card2:#1c2950;--muted:#8290b5;background:#0a0e1a;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;border:1px solid rgba(120,150,255,.12);margin-top:1.5rem;}
 .vc-root *{box-sizing:border-box;}
-.vc-root .vc-header{text-align:center;padding:18px 16px 10px;}
+.vc-root .vc-header{text-align:center;padding:18px 16px 12px;}
 .vc-root .vc-header h1{font-size:clamp(16px,4vw,24px);font-weight:800;letter-spacing:.5px;background:linear-gradient(90deg,#fff,#9fc0ff,var(--green-soft));-webkit-background-clip:text;background-clip:text;color:transparent;}
-.vc-root .sub{margin-top:8px;display:flex;justify-content:center;}
-.vc-root .live{display:inline-flex;align-items:center;gap:7px;background:rgba(34,224,122,.12);color:var(--green-soft);padding:4px 12px;border-radius:999px;font-weight:700;font-size:12px;border:1px solid rgba(34,224,122,.3);}
-.vc-root .live .dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:vcpulse 1.3s infinite;}
-@keyframes vcpulse{0%{box-shadow:0 0 0 0 rgba(34,224,122,.6)}70%{box-shadow:0 0 0 9px rgba(34,224,122,0)}100%{box-shadow:0 0 0 0 rgba(34,224,122,0)}}
-.vc-root .board{height:380px;position:relative;overflow:hidden;-webkit-mask-image:linear-gradient(180deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(180deg,transparent,#000 8%,#000 92%,transparent);}
-.vc-root .track{display:flex;flex-direction:column;gap:12px;padding:14px clamp(10px,4vw,24px);will-change:transform;}
-.vc-root .row{display:flex;align-items:center;justify-content:space-between;gap:14px;height:64px;flex:0 0 auto;background:linear-gradient(135deg,var(--card),var(--card2));border:1px solid rgba(120,150,255,.12);border-radius:16px;padding:0 16px;box-shadow:0 8px 30px rgba(0,0,0,.35);}
+.vc-root .board{height:clamp(440px,68vh,640px);position:relative;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;-webkit-mask-image:linear-gradient(180deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(180deg,transparent,#000 6%,#000 94%,transparent);}
+.vc-root .board::-webkit-scrollbar{display:none;}
+.vc-root .track{display:flex;flex-direction:column;padding:12px clamp(10px,4vw,24px);}
+.vc-root .row{display:flex;align-items:center;justify-content:space-between;gap:14px;height:64px;margin-bottom:12px;flex:0 0 auto;background:linear-gradient(135deg,var(--card),var(--card2));border:1px solid rgba(120,150,255,.12);border-radius:16px;padding:0 16px;box-shadow:0 8px 30px rgba(0,0,0,.35);}
 .vc-root .who{display:flex;align-items:center;gap:12px;min-width:0;}
 .vc-root .avatar{width:48px;height:48px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.4);position:relative;border:2px solid rgba(255,255,255,.15);}
 .vc-root .avatar svg{width:24px;height:24px;}
@@ -29,7 +28,6 @@ const CSS = `
 .vc-root .avatar .flag{position:absolute;right:-3px;bottom:-3px;z-index:3;width:19px;height:19px;border-radius:50%;object-fit:cover;border:2px solid var(--card);box-shadow:0 2px 6px rgba(0,0,0,.5);background:#0d1330;}
 .vc-root .flag-inline{width:18px;height:13px;border-radius:3px;object-fit:cover;vertical-align:-2px;margin-left:6px;box-shadow:0 1px 3px rgba(0,0,0,.4);}
 .vc-root .name{font-weight:700;font-size:14px;color:#e8edf7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;}
-.vc-root .name .verif{color:#41d8ff;margin-left:5px;font-size:12px;}
 .vc-root .meta{color:var(--muted);font-size:11px;margin-top:2px;}
 .vc-root .earn{text-align:right;flex:0 0 auto;}
 .vc-root .earn-label{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;}
@@ -39,7 +37,6 @@ const CSS = `
 `
 
 const rnd = (arr: any[]) => arr[Math.floor(Math.random() * arr.length)]
-// Escapa datos antes de inyectarlos en innerHTML (evita XSS con usernames reales)
 const esc = (s: any) => String(s).replace(/[&<>"]/g, (c) => (({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as any)[c]))
 
 export default function CommunityFeed() {
@@ -56,7 +53,7 @@ export default function CommunityFeed() {
 
     const fmt = (n: number) => '$' + Math.floor(n).toLocaleString('es-MX')
 
-    // ---- Perfiles generados (relleno) ----
+    // Perfiles generados (relleno)
     const TOTAL = 1000
     const usados = new Set<string>()
     const generados: any[] = []
@@ -73,7 +70,6 @@ export default function CommunityFeed() {
         color: rnd(COLORES),
         base: 300 + Math.floor(Math.random() * 1200),
         meta: `@${nombre.toLowerCase().split(' ')[0]}_virtus · activo`,
-        real: false,
       })
     }
     const mezclar = (a: any[]) => {
@@ -84,7 +80,6 @@ export default function CommunityFeed() {
     }
     mezclar(generados)
 
-    // ---- Construir pool intercalando reales (1 de cada 4) ----
     const buildPool = () => {
       const reales = realesRef.current
       if (!reales.length) { poolRef.current = generados; return }
@@ -129,22 +124,19 @@ export default function CommunityFeed() {
         </div>`
     }
 
-    const ROW_H = 64 + 12
-    const nVisibles = () => Math.ceil(board.clientHeight / ROW_H) + 4
-    const construir = () => {
-      track.innerHTML = ''
-      const n = nVisibles()
-      for (let i = 0; i < n; i++) {
-        const row = document.createElement('div')
-        row.className = 'row'
-        pintarFila(row, siguientePerfil())
-        track.appendChild(row)
-      }
+    const appendRow = () => {
+      const row = document.createElement('div')
+      row.className = 'row'
+      pintarFila(row, siguientePerfil())
+      track.appendChild(row)
     }
-    construir()
-    window.addEventListener('resize', construir)
 
-    // ---- Traer usuarios reales (saldo real) y refrescar cada 45s ----
+    // Llenado inicial (suficiente para llenar + buffer)
+    track.innerHTML = ''
+    const inicial = Math.ceil((board.clientHeight || 500) / ROW_H) + 24
+    for (let i = 0; i < inicial; i++) appendRow()
+
+    // Traer usuarios reales (saldo real) y refrescar cada 45s
     const token = document.cookie.split('; ').find((r) => r.startsWith('auth_token='))?.split('=')[1]
     const fetchReales = async () => {
       if (!token) return
@@ -160,9 +152,7 @@ export default function CommunityFeed() {
           color: rnd(COLORES),
           base: u.balance,
           meta: 'activo',
-          real: true,
         }))
-        // Mezclar el orden de los reales para variedad
         mezclar(arr)
         realesRef.current = arr
         buildPool()
@@ -171,26 +161,46 @@ export default function CommunityFeed() {
     fetchReales()
     const realesInterval = setInterval(fetchReales, 45_000)
 
-    // ---- Animación ----
-    let offset = 0
+    // Auto-scroll (se pausa cuando el usuario interactúa) + scroll nativo deslizable
+    let userActive = false
+    let resumeTimer: any = null
+    const pause = () => { userActive = true; if (resumeTimer) clearTimeout(resumeTimer) }
+    const scheduleResume = () => { if (resumeTimer) clearTimeout(resumeTimer); resumeTimer = setTimeout(() => { userActive = false }, 2800) }
+    board.addEventListener('pointerdown', pause)
+    board.addEventListener('touchstart', pause, { passive: true })
+    board.addEventListener('wheel', () => { pause(); scheduleResume() }, { passive: true })
+    board.addEventListener('pointerup', scheduleResume)
+    board.addEventListener('touchend', scheduleResume)
+
+    const SPEED = 0.5
     let rafId = 0
-    const VELOCIDAD = 0.35
-    const animar = () => {
-      offset += VELOCIDAD
-      while (offset >= ROW_H) {
-        offset -= ROW_H
-        const primera = track.firstElementChild as HTMLElement | null
-        if (primera) { pintarFila(primera, siguientePerfil()); track.appendChild(primera) }
+    const tick = () => {
+      if (!userActive) board.scrollTop += SPEED
+      // Agregar más filas al acercarse al final (scroll infinito, sin saltos)
+      if (board.scrollTop + board.clientHeight >= board.scrollHeight - ROW_H * 8) {
+        for (let i = 0; i < 16; i++) appendRow()
       }
-      track.style.transform = `translateY(${-offset}px)`
-      rafId = requestAnimationFrame(animar)
+      // Recortar filas de arriba (fuera de vista) para no inflar el DOM
+      if (track.children.length > 160 && board.scrollTop > ROW_H * 60) {
+        const quitar = 40
+        for (let i = 0; i < quitar; i++) {
+          const first = track.firstElementChild
+          if (first) track.removeChild(first)
+        }
+        board.scrollTop -= quitar * ROW_H
+      }
+      rafId = requestAnimationFrame(tick)
     }
-    rafId = requestAnimationFrame(animar)
+    rafId = requestAnimationFrame(tick)
 
     return () => {
       cancelAnimationFrame(rafId)
       clearInterval(realesInterval)
-      window.removeEventListener('resize', construir)
+      if (resumeTimer) clearTimeout(resumeTimer)
+      board.removeEventListener('pointerdown', pause)
+      board.removeEventListener('touchstart', pause)
+      board.removeEventListener('pointerup', scheduleResume)
+      board.removeEventListener('touchend', scheduleResume)
     }
   }, [])
 
@@ -198,8 +208,7 @@ export default function CommunityFeed() {
     <div className="vc-root">
       <style>{CSS}</style>
       <div className="vc-header">
-        <h1>🚀 Virtus Community in Motion</h1>
-        <div className="sub"><span className="live"><span className="dot" />GROWING</span></div>
+        <h1>Virtus Community in Motion</h1>
       </div>
       <div className="board" ref={boardRef}>
         <div className="track" ref={trackRef} />
