@@ -1302,42 +1302,36 @@ export default function FuturosPage() {
         <MarketStats pair={currentPair} />
 
         {/* Timeframes */}
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-4 mask-fade-sides">
+        <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide mb-3 border-b border-white/5">
           {TIMEFRAMES.map(time => (
             <button
               key={time}
               onClick={() => setSelectedTime(time)}
-              className={`px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold whitespace-nowrap transition-all ${selectedTime === time
-                ? 'bg-[#34D399] text-[#060B10] shadow-[0_0_10px_rgba(52,211,153,0.3)] scale-105'
-                : 'bg-[#131B26] text-gray-500 border border-white/5 hover:border-white/10 hover:text-gray-300'
-                }`}
+              className={`relative text-xs font-semibold whitespace-nowrap transition-colors pb-2 ${selectedTime === time ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
             >
               {time}
+              {selectedTime === time && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-[#F0B90B]" />}
             </button>
           ))}
         </div>
 
         {/* Indicadores */}
-        <div className="flex gap-2 mb-3 flex-wrap items-center">
+        <div className="flex items-center gap-5 overflow-x-auto pb-2 scrollbar-hide mb-3 text-xs">
           {(['MA', 'EMA', 'BOLL', 'SAR'] as const).map((ind) => (
             <button
               key={ind}
               onClick={() => setIndicator(ind)}
-              className={`px-3 py-1 rounded-lg text-[10px] uppercase font-bold transition-all ${indicator === ind
-                ? 'bg-[#F0B90B] text-[#060B10]'
-                : 'bg-[#131B26] text-gray-500 border border-white/5 hover:text-gray-300'}`}
+              className={`whitespace-nowrap font-semibold transition-colors ${indicator === ind ? 'text-[#F0B90B]' : 'text-gray-500 hover:text-gray-300'}`}
             >
               {ind}
             </button>
           ))}
-          <span className="w-px h-4 bg-white/10 mx-0.5" />
+          <span className="w-px h-3 bg-white/10 self-center flex-shrink-0" />
           {(['VOL', 'MACD', 'RSI'] as const).map((si) => (
             <button
               key={si}
               onClick={() => setSubIndicator(si)}
-              className={`px-3 py-1 rounded-lg text-[10px] uppercase font-bold transition-all ${subIndicator === si
-                ? 'bg-[#34D399] text-[#060B10]'
-                : 'bg-[#131B26] text-gray-500 border border-white/5 hover:text-gray-300'}`}
+              className={`whitespace-nowrap font-semibold transition-colors ${subIndicator === si ? 'text-[#34D399]' : 'text-gray-500 hover:text-gray-300'}`}
             >
               {si}
             </button>
