@@ -154,6 +154,10 @@ export default function AdminPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [token, setToken] = useState<string>('')
+  const [overview, setOverview] = useState<{
+    total_users: number; active_vips: number; pending_withdrawals: number
+    pending_kyc: number; pending_purchases: number; support_pending: number; total_balance: number
+  } | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
   const [purchaseSearch, setPurchaseSearch] = useState('')
@@ -269,6 +273,15 @@ export default function AdminPage() {
       fetchConfigData()
     }
   }, [token])
+
+  // Resumen del panel (tarjetas de atención + badges). Se refresca al cambiar de pestaña.
+  useEffect(() => {
+    if (!token) return
+    fetch('/api/admin/overview', { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) setOverview(d) })
+      .catch(() => {})
+  }, [token, tab])
 
   const getToken = () => {
     return token
@@ -910,6 +923,16 @@ export default function AdminPage() {
     { key: 'kyc' as const, label: 'KYC', icon: '🪪' },
   ]
 
+  // Número de pendientes a mostrar como badge en cada pestaña
+  const tabBadge = (key: string): number => {
+    if (!overview) return 0
+    if (key === 'withdrawals') return overview.pending_withdrawals
+    if (key === 'kyc') return overview.pending_kyc
+    if (key === 'messages') return overview.support_pending
+    if (key === 'purchases') return overview.pending_purchases
+    return 0
+  }
+
 
   const handleCreateNews = async () => {
     if (!newsTitle || !newsBody) {
@@ -1024,7 +1047,10 @@ export default function AdminPage() {
                 }`}
               >
                 <span className="text-lg flex-shrink-0">{item.icon}</span>
-                <span className="text-sm font-medium">{item.label}</span>
+                <span className="text-sm font-medium flex-1">{item.label}</span>
+                {tabBadge(item.key) > 0 && (
+                  <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">{tabBadge(item.key)}</span>
+                )}
               </button>
             )
           })}
@@ -1040,6 +1066,34 @@ export default function AdminPage() {
             GESTIÓN DEL SISTEMA
           </p>
         </div>
+
+        {/* Resumen ejecutivo (clickeable) */}
+        {overview && (
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
+            {([
+              { label: 'Usuarios', value: overview.total_users, icon: '👥', go: 'active-users' as Tab, alert: false },
+              { label: 'VIP activos', value: overview.active_vips, icon: '✅', go: 'active-users' as Tab, alert: false },
+              { label: 'Saldo del sistema', value: '$' + overview.total_balance.toLocaleString('en-US', { maximumFractionDigits: 2 }), icon: '🏦', go: null, alert: false },
+              { label: 'Retiros pendientes', value: overview.pending_withdrawals, icon: '💰', go: 'withdrawals' as Tab, alert: overview.pending_withdrawals > 0 },
+              { label: 'KYC pendientes', value: overview.pending_kyc, icon: '🪪', go: 'kyc' as Tab, alert: overview.pending_kyc > 0 },
+              { label: 'Por verificar', value: overview.pending_purchases, icon: '🧾', go: 'purchases' as Tab, alert: overview.pending_purchases > 0 },
+              { label: 'Mensajes nuevos', value: overview.support_pending, icon: '💬', go: 'messages' as Tab, alert: overview.support_pending > 0 },
+            ]).map((s, i) => (
+              <button
+                key={i}
+                onClick={() => { if (s.go) setTab(s.go) }}
+                disabled={!s.go}
+                className={`text-left p-3 rounded-xl border transition-all ${s.alert ? 'bg-red-500/10 border-red-500/40 hover:border-red-500/70' : 'bg-dark-card border-gold/10 hover:border-gold/30'} ${s.go ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default'}`}
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-base">{s.icon}</span>
+                  <span className="text-[10px] text-text-secondary uppercase tracking-wider leading-tight">{s.label}</span>
+                </div>
+                <div className={`text-xl font-bold ${s.alert ? 'text-red-400' : 'text-gold'}`}>{s.value}</div>
+              </button>
+            ))}
+          </div>
+        )}
 
         {loading ? (
           <p className="text-center text-gold">Cargando...</p>
@@ -2293,6 +2347,9 @@ export default function AdminPage() {
               >
                 <span className="text-xl mb-0.5">{item.icon}</span>
                 <span className="text-[10px] font-medium whitespace-nowrap">{item.label}</span>
+                {tabBadge(item.key) > 0 && (
+                  <span className="absolute top-1 right-1 min-w-[15px] h-[15px] px-0.5 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center">{tabBadge(item.key)}</span>
+                )}
               </button>
             )
           })}
