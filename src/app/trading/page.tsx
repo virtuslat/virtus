@@ -68,11 +68,21 @@ export default function FuturosPage() {
   const wsKline = useRef<WebSocket | null>(null)
   const wsTrade = useRef<WebSocket | null>(null)
 
+  // Refs del gráfico (rendimiento / tiempo real)
+  const currentPriceRef = useRef<number>(0)
+  const candleDataRef = useRef<Candle[]>([])
+  const closingRef = useRef(false)
+  const lastRenderRef = useRef(0)
+  const renderTimerRef = useRef<any>(null)
+  const persistMountedRef = useRef(false)
+
   // -- State --
   const [currentPair, setCurrentPair] = useState('BTC/USDT')
   const [currentPrice, setCurrentPrice] = useState<number>(0)
   const [candleData, setCandleData] = useState<Candle[]>([])
   const [selectedTime, setSelectedTime] = useState('60s')
+  const [wsStatus, setWsStatus] = useState<'live' | 'connecting'>('connecting')
+  const [indicator, setIndicator] = useState<'MA' | 'EMA' | 'BOLL'>('MA')
 
 
   // User Data (Persisted)
@@ -507,8 +517,10 @@ export default function FuturosPage() {
     }
   }
 
-  const updateChart = (data: Candle[]) => {
+  const updateChart = () => {
     if (!chartInstance.current) return
+    const data = candleDataRef.current
+    if (!data.length) return
 
     const dates = data.map(d => {
       const dt = new Date(d.time)
@@ -552,28 +564,103 @@ export default function FuturosPage() {
     const fmt = (v: any) => v === '-' ? '-' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
     const cMA7 = '#F0B90B', cMA25 = '#E854A0', cMA99 = '#7C5CFC'
+    const richBase = { fontSize: 10, fontFamily: 'Orbitron' }
+
+    // EMA (media móvil exponencial)
+    const calcEMA = (period: number) => {
+      const k = 2 / (period + 1)
+      const res: (string | number)[] = []
+      let prev: number | null = null
+      for (let i = 0; i < values.length; i++) {
+        if (i < period - 1) { res.push('-'); continue }
+        if (prev === null) {
+          let s = 0; for (let j = 0; j < period; j++) s += values[i - j][1]
+          prev = s / period
+        } else {
+          prev = values[i][1] * k + prev * (1 - k)
+        }
+        res.push(+prev.toFixed(2))
+      }
+      return res
+    }
+    // Bandas de Bollinger (20, 2)
+    const calcBOLL = () => {
+      const period = 20, mult = 2
+      const mid: (string | number)[] = [], up: (string | number)[] = [], low: (string | number)[] = []
+      for (let i = 0; i < values.length; i++) {
+        if (i < period - 1) { mid.push('-'); up.push('-'); low.push('-'); continue }
+        let s = 0; for (let j = 0; j < period; j++) s += values[i - j][1]
+        const m = s / period
+        let v = 0; for (let j = 0; j < period; j++) v += (values[i - j][1] - m) ** 2
+        const sd = Math.sqrt(v / period)
+        mid.push(+m.toFixed(2)); up.push(+(m + mult * sd).toFixed(2)); low.push(+(m - mult * sd).toFixed(2))
+      }
+      return { mid, up, low }
+    }
+
+    // Construir overlays + título según el indicador seleccionado
+    let overlaySeries: any[] = []
+    let titleText = ''
+    let titleRich: any = {}
+    if (indicator === 'EMA') {
+      const e7 = calcEMA(7), e25 = calcEMA(25), e99 = calcEMA(99)
+      overlaySeries = [
+        { name: 'EMA7', type: 'line', data: e7, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA7 } },
+        { name: 'EMA25', type: 'line', data: e25, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA25 } },
+        { name: 'EMA99', type: 'line', data: e99, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA99 } },
+      ]
+      titleText = `{a|EMA(7): ${fmt(lastVal(e7))}}  {b|EMA(25): ${fmt(lastVal(e25))}}  {c|EMA(99): ${fmt(lastVal(e99))}}`
+      titleRich = { a: { color: cMA7, ...richBase }, b: { color: cMA25, ...richBase }, c: { color: cMA99, ...richBase } }
+    } else if (indicator === 'BOLL') {
+      const b = calcBOLL()
+      const cUp = '#F0B90B', cMid = '#8a929b', cLow = '#7C5CFC'
+      overlaySeries = [
+        { name: 'BOLL_UP', type: 'line', data: b.up, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cUp } },
+        { name: 'BOLL_MID', type: 'line', data: b.mid, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMid } },
+        { name: 'BOLL_LOW', type: 'line', data: b.low, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cLow } },
+      ]
+      titleText = `{a|BOLL(20,2)}  {b|UP: ${fmt(lastVal(b.up))}}  {c|LOW: ${fmt(lastVal(b.low))}}`
+      titleRich = { a: { color: cMid, ...richBase }, b: { color: cUp, ...richBase }, c: { color: cLow, ...richBase } }
+    } else {
+      overlaySeries = [
+        { name: 'MA7', type: 'line', data: ma7, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA7 } },
+        { name: 'MA25', type: 'line', data: ma25, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA25 } },
+        { name: 'MA99', type: 'line', data: ma99, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA99 } },
+      ]
+      titleText = `{a|MA(7): ${fmt(lastVal(ma7))}}  {b|MA(25): ${fmt(lastVal(ma25))}}  {c|MA(99): ${fmt(lastVal(ma99))}}`
+      titleRich = { a: { color: cMA7, ...richBase }, b: { color: cMA25, ...richBase }, c: { color: cMA99, ...richBase } }
+    }
 
     const option = {
       backgroundColor: 'transparent',
       animation: false,
       title: {
         left: 4, top: 0,
-        text: `{a|MA(7): ${fmt(lastVal(ma7))}}  {b|MA(25): ${fmt(lastVal(ma25))}}  {c|MA(99): ${fmt(lastVal(ma99))}}`,
-        textStyle: {
-          fontSize: 10, fontWeight: 'normal' as const, fontFamily: 'Orbitron',
-          rich: {
-            a: { color: cMA7, fontSize: 10, fontFamily: 'Orbitron' },
-            b: { color: cMA25, fontSize: 10, fontFamily: 'Orbitron' },
-            c: { color: cMA99, fontSize: 10, fontFamily: 'Orbitron' },
-          }
-        }
+        text: titleText,
+        textStyle: { fontSize: 10, fontWeight: 'normal' as const, fontFamily: 'Orbitron', rich: titleRich },
       },
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'cross', lineStyle: { color: '#8a929b', width: 1, opacity: 0.6 } },
         backgroundColor: 'rgba(16, 23, 32, 0.95)',
         borderColor: '#34D399',
-        textStyle: { color: '#fff', fontSize: 11 }
+        textStyle: { color: '#fff', fontSize: 11 },
+        formatter: (params: any) => {
+          const arr = Array.isArray(params) ? params : [params]
+          const p = arr.find((x: any) => x.seriesName === 'Velas') || arr[0]
+          const i = p?.dataIndex ?? 0
+          const c = data[i]
+          if (!c) return ''
+          const chg = c.open ? ((c.close - c.open) / c.open) * 100 : 0
+          const col = c.close >= c.open ? '#34D399' : '#ff5a5a'
+          const f = (n: number) => Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 })
+          return `<div style="font-size:11px;line-height:1.6;font-family:Orbitron">
+            <div style="color:#8a929b;margin-bottom:2px">${dates[i] || ''}</div>
+            <span style="color:#8a929b">O</span> ${f(c.open)}&nbsp;&nbsp;<span style="color:#8a929b">H</span> ${f(c.high)}<br/>
+            <span style="color:#8a929b">L</span> ${f(c.low)}&nbsp;&nbsp;<span style="color:#8a929b">C</span> <b style="color:${col}">${f(c.close)}</b>
+            <div style="color:${col}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</div>
+          </div>`
+        },
       },
       axisPointer: { link: [{ xAxisIndex: [0, 1] }] },
       grid: [
@@ -626,10 +713,10 @@ export default function FuturosPage() {
             symbol: ['none', 'none'],
             data: [
               {
-                yAxis: currentPrice,
+                yAxis: currentPriceRef.current,
                 label: {
                   show: true, position: 'end',
-                  formatter: () => Number(currentPrice).toLocaleString('en-US', { maximumFractionDigits: 2 }),
+                  formatter: () => Number(currentPriceRef.current).toLocaleString('en-US', { maximumFractionDigits: 2 }),
                   color: '#0A1119', backgroundColor: '#F0B90B', padding: [2, 4], fontSize: 9, fontFamily: 'Orbitron'
                 },
                 lineStyle: { color: '#F0B90B', type: 'dashed', width: 1, opacity: 0.9 }
@@ -638,9 +725,7 @@ export default function FuturosPage() {
             animation: false
           }
         },
-        { name: 'MA7', type: 'line', data: ma7, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA7 } },
-        { name: 'MA25', type: 'line', data: ma25, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA25 } },
-        { name: 'MA99', type: 'line', data: ma99, smooth: true, showSymbol: false, lineStyle: { width: 1, color: cMA99 } },
+        ...overlaySeries,
         {
           name: 'Volume', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: volumes,
           itemStyle: { color: (params: any) => params.value[2] === 1 ? 'rgba(0, 212, 157, 0.45)' : 'rgba(255, 90, 90, 0.45)' }
@@ -650,10 +735,22 @@ export default function FuturosPage() {
       ]
     }
 
+    // Zoom/scroll: preservar el zoom actual del usuario entre actualizaciones
+    let dz = { start: 55, end: 100 }
+    try {
+      const prev: any = chartInstance.current.getOption()
+      if (prev?.dataZoom?.[0] && typeof prev.dataZoom[0].start === 'number') {
+        dz = { start: prev.dataZoom[0].start, end: prev.dataZoom[0].end }
+      }
+    } catch {}
+    ;(option as any).dataZoom = [
+      { type: 'inside', xAxisIndex: [0, 1], start: dz.start, end: dz.end, zoomOnMouseWheel: true, moveOnMouseMove: true, throttle: 50 },
+    ]
+
     chartInstance.current.setOption(option)
   }
 
-  // Init Data and Sockets
+  // Init Data and Sockets (con reconexión automática)
   useEffect(() => {
     let interval = '1m'
     if (selectedTime === '5min') interval = '5m'
@@ -665,80 +762,110 @@ export default function FuturosPage() {
     if (selectedTime === '1d') interval = '1d'
 
     const symbol = getBinanceSymbol(currentPair)
+    closingRef.current = false
+    let klineTimer: any = null
+    let tradeTimer: any = null
 
     const init = async () => {
       const data = await fetchHistorical(symbol.toUpperCase(), interval)
       setCandleData(data)
-      if (data.length > 0) setCurrentPrice(data[data.length - 1].close)
+      if (data.length > 0) {
+        setCurrentPrice(data[data.length - 1].close)
+        currentPriceRef.current = data[data.length - 1].close
+      }
     }
     init()
 
-    // Clear old sockets
-    if (wsKline.current) wsKline.current.close()
-    if (wsTrade.current) wsTrade.current.close()
-
-    // Kline Socket
-    wsKline.current = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@kline_${interval}`)
-    wsKline.current.onmessage = (e) => {
-      const msg = JSON.parse(e.data)
-      const k = msg.k
-      const newCandle = {
-        time: k.t,
-        open: parseFloat(k.o),
-        high: parseFloat(k.h),
-        low: parseFloat(k.l),
-        close: parseFloat(k.c),
-        volume: parseFloat(k.v)
-      }
-
-      setCandleData(prev => {
-        const last = prev[prev.length - 1]
-        if (last && last.time === newCandle.time) {
-          const updated = [...prev]
-          updated[updated.length - 1] = newCandle
-          return updated
-        } else {
-          const updated = [...prev.slice(1), newCandle]
-          return updated
+    const connectKline = () => {
+      setWsStatus('connecting')
+      const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@kline_${interval}`)
+      wsKline.current = ws
+      ws.onopen = () => { if (!closingRef.current) setWsStatus('live') }
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data)
+        const k = msg.k
+        const newCandle = {
+          time: k.t, open: parseFloat(k.o), high: parseFloat(k.h),
+          low: parseFloat(k.l), close: parseFloat(k.c), volume: parseFloat(k.v),
         }
-      })
+        setCandleData(prev => {
+          const last = prev[prev.length - 1]
+          if (last && last.time === newCandle.time) {
+            const updated = [...prev]; updated[updated.length - 1] = newCandle; return updated
+          }
+          return [...prev.slice(1), newCandle]
+        })
+      }
+      ws.onerror = () => { try { ws.close() } catch {} }
+      ws.onclose = () => { if (!closingRef.current) { setWsStatus('connecting'); klineTimer = setTimeout(connectKline, 1500) } }
     }
 
-    // Trade Socket (Tick by tick)
-    wsTrade.current = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@aggTrade`)
-    wsTrade.current.onmessage = (e) => {
-      const msg = JSON.parse(e.data)
-      const price = parseFloat(msg.p)
-      setCurrentPrice(price)
-
-      // Update last candle close locally for smoothness
-      setCandleData(prev => {
-        if (prev.length === 0) return prev
-        const last = { ...prev[prev.length - 1] }
-        last.close = price
-        if (price > last.high) last.high = price
-        if (price < last.low) last.low = price
-
-        const updated = [...prev]
-        updated[updated.length - 1] = last
-        return updated
-      })
+    const connectTrade = () => {
+      const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@aggTrade`)
+      wsTrade.current = ws
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data)
+        const price = parseFloat(msg.p)
+        setCurrentPrice(price)
+        currentPriceRef.current = price
+        setCandleData(prev => {
+          if (prev.length === 0) return prev
+          const last = { ...prev[prev.length - 1] }
+          last.close = price
+          if (price > last.high) last.high = price
+          if (price < last.low) last.low = price
+          const updated = [...prev]; updated[updated.length - 1] = last; return updated
+        })
+      }
+      ws.onerror = () => { try { ws.close() } catch {} }
+      ws.onclose = () => { if (!closingRef.current) { tradeTimer = setTimeout(connectTrade, 1500) } }
     }
+
+    connectKline()
+    connectTrade()
 
     return () => {
-      if (wsKline.current) wsKline.current.close()
-      if (wsTrade.current) wsTrade.current.close()
+      closingRef.current = true
+      if (klineTimer) clearTimeout(klineTimer)
+      if (tradeTimer) clearTimeout(tradeTimer)
+      try { wsKline.current?.close() } catch {}
+      try { wsTrade.current?.close() } catch {}
     }
   }, [currentPair, selectedTime])
 
-  // Chart Rendering Effect
+  // Cargar par e intervalo guardados (al montar; evita hydration mismatch)
   useEffect(() => {
+    try {
+      const p = localStorage.getItem('tr_pair'); if (p) setCurrentPair(p)
+      const tf = localStorage.getItem('tr_tf'); if (tf) setSelectedTime(tf)
+    } catch {}
+  }, [])
+
+  // Guardar par e intervalo elegidos (omite el primer render para no pisar lo guardado)
+  useEffect(() => {
+    if (!persistMountedRef.current) { persistMountedRef.current = true; return }
+    try {
+      localStorage.setItem('tr_pair', currentPair)
+      localStorage.setItem('tr_tf', selectedTime)
+    } catch {}
+  }, [currentPair, selectedTime])
+
+  // Chart Rendering Effect (con throttle ~5fps para fluidez)
+  useEffect(() => {
+    candleDataRef.current = candleData
+    currentPriceRef.current = currentPrice || currentPriceRef.current
     if (chartRef.current && !chartInstance.current) {
       chartInstance.current = echarts.init(chartRef.current)
       window.addEventListener('resize', () => chartInstance.current?.resize())
     }
-    updateChart(candleData)
-  }, [candleData, currentPrice])
+    const elapsed = Date.now() - lastRenderRef.current
+    const run = () => { lastRenderRef.current = Date.now(); updateChart() }
+    if (elapsed >= 180) run()
+    else {
+      if (renderTimerRef.current) clearTimeout(renderTimerRef.current)
+      renderTimerRef.current = setTimeout(run, 180 - elapsed)
+    }
+  }, [candleData, currentPrice, indicator])
 
 
   // --- Trading Logic Loop (Check Orders) ---
@@ -1047,7 +1174,10 @@ export default function FuturosPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase font-bold text-[#34D399] bg-[#34D399]/10 border border-[#34D399]/20 px-2 py-0.5 rounded">{t('trading.live')}</span>
+            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${wsStatus === 'live' ? 'text-[#34D399] bg-[#34D399]/10 border-[#34D399]/20' : 'text-[#FBBF24] bg-[#FBBF24]/10 border-[#FBBF24]/20'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${wsStatus === 'live' ? 'bg-[#34D399]' : 'bg-[#FBBF24]'}`} />
+              {wsStatus === 'live' ? t('trading.live') : 'Reconectando'}
+            </span>
           </div>
         </div>
 
@@ -1063,6 +1193,21 @@ export default function FuturosPage() {
                 }`}
             >
               {time}
+            </button>
+          ))}
+        </div>
+
+        {/* Indicadores */}
+        <div className="flex gap-2 mb-3">
+          {(['MA', 'EMA', 'BOLL'] as const).map((ind) => (
+            <button
+              key={ind}
+              onClick={() => setIndicator(ind)}
+              className={`px-3 py-1 rounded-lg text-[10px] uppercase font-bold transition-all ${indicator === ind
+                ? 'bg-[#F0B90B] text-[#060B10]'
+                : 'bg-[#131B26] text-gray-500 border border-white/5 hover:text-gray-300'}`}
+            >
+              {ind}
             </button>
           ))}
         </div>
