@@ -1335,33 +1335,10 @@ export default function FuturosPage() {
           ))}
         </div>
 
-        {/* Indicadores */}
-        <div className="flex items-center gap-5 overflow-x-auto pb-2 scrollbar-hide mb-3 text-xs">
-          {(['MA', 'EMA', 'BOLL', 'SAR'] as const).map((ind) => (
-            <button
-              key={ind}
-              onClick={() => setIndicator(ind)}
-              className={`whitespace-nowrap font-semibold transition-colors ${indicator === ind ? 'text-[#F0B90B]' : 'text-gray-500 hover:text-gray-300'}`}
-            >
-              {ind}
-            </button>
-          ))}
-          <span className="w-px h-3 bg-white/10 self-center flex-shrink-0" />
-          {(['VOL', 'MACD', 'RSI'] as const).map((si) => (
-            <button
-              key={si}
-              onClick={() => setSubIndicator(si)}
-              className={`whitespace-nowrap font-semibold transition-colors ${subIndicator === si ? 'text-[#34D399]' : 'text-gray-500 hover:text-gray-300'}`}
-            >
-              {si}
-            </button>
-          ))}
-        </div>
-
-        {/* Chart Container */}
+        {/* Chart Container (sin caja, fluido como Binance) */}
         <div className={chartFullscreen
-          ? 'fixed inset-0 z-[120] bg-[#0A1119] p-2 overflow-hidden'
-          : 'h-[380px] md:h-[480px] lg:h-[580px] rounded-2xl bg-[#0A1119] border border-white/5 relative mb-6 overflow-hidden shadow-2xl'}>
+          ? 'fixed inset-0 z-[120] bg-[#060B10] p-2 overflow-hidden'
+          : 'h-[380px] md:h-[480px] lg:h-[580px] relative overflow-hidden'}>
           {/* Chart Glows */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-[#34D399]/5 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#00A3FF]/5 rounded-full blur-3xl pointer-events-none" />
@@ -1386,7 +1363,18 @@ export default function FuturosPage() {
           <div ref={chartRef} className="w-full h-full relative z-10"></div>
         </div>
 
-        {/* Rendimiento por período */}
+        {/* Indicadores (debajo del gráfico, como Binance) */}
+        <div className="flex items-center gap-5 overflow-x-auto py-2 scrollbar-hide text-xs border-y border-white/5">
+          {(['MA', 'EMA', 'BOLL', 'SAR'] as const).map((ind) => (
+            <button key={ind} onClick={() => setIndicator(ind)} className={`whitespace-nowrap font-semibold transition-colors ${indicator === ind ? 'text-[#F0B90B]' : 'text-gray-500 hover:text-gray-300'}`}>{ind}</button>
+          ))}
+          <span className="w-px h-3 bg-white/10 self-center flex-shrink-0" />
+          {(['VOL', 'MACD', 'RSI'] as const).map((si) => (
+            <button key={si} onClick={() => setSubIndicator(si)} className={`whitespace-nowrap font-semibold transition-colors ${subIndicator === si ? 'text-[#34D399]' : 'text-gray-500 hover:text-gray-300'}`}>{si}</button>
+          ))}
+        </div>
+
+        {/* Rendimiento por período (pegado, sin caja) */}
         <PerformanceRow pair={currentPair} />
 
         {/* Libro de órdenes (Libro / Profundidad / Trades / Red) */}

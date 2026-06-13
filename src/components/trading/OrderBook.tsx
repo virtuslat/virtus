@@ -98,7 +98,7 @@ export default function OrderBook({ pair }: { pair: string }) {
   )
 
   return (
-    <div className="bg-[#0A1119] border border-white/5 rounded-2xl p-4 mb-6">
+    <div className="pt-1 pb-6">
       {/* Pestañas */}
       <div className="flex gap-5 border-b border-white/5 mb-3">
         <Tab id="book" label="Libro" />

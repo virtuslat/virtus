@@ -42,7 +42,7 @@ export default function PerformanceRow({ pair }: { pair: string }) {
   if (perf.length === 0) return null
 
   return (
-    <div className="grid grid-cols-6 gap-1 mb-4 bg-[#0A1119] border border-white/5 rounded-xl p-3">
+    <div className="grid grid-cols-6 gap-1 py-3 border-b border-white/5 mb-3">
       {perf.map((p) => (
         <div key={p.label} className="text-center">
           <div className="text-[9px] text-gray-500 mb-1 whitespace-nowrap">{p.label}</div>
