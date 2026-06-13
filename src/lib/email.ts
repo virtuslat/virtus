@@ -109,7 +109,7 @@ function getWelcomeEmailTemplate(fullName: string, username: string): string {
                 Si tienes alguna pregunta, no dudes en contactarnos.
               </p>
               <p style="color: rgba(255,255,255,0.3); font-size: 11px; text-align: center; margin: 0;">
-                © 2026 Virtus. Todos los derechos reservados.<br>
+                © Virtus. Todos los derechos reservados.<br>
                 El contenido y la marca están protegidos por la legislación vigente.
               </p>
             </td>
@@ -137,7 +137,7 @@ export async function sendWelcomeEmail({ to, fullName, username }: WelcomeEmailP
       to,
       subject: '🎉 ¡Bienvenido/a a VIRTUS! - Tu cuenta ha sido creada',
       html: getWelcomeEmailTemplate(fullName, username),
-      text: `¡Bienvenido/a a VIRTUS, ${fullName}!\n\nTu cuenta ha sido creada exitosamente.\n\nInformación de tu cuenta:\n- Nombre: ${fullName}\n- Usuario: ${username}\n\nPuedes iniciar sesión en: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login\n\n© 2026 Virtus. Todos los derechos reservados.`,
+      text: `¡Bienvenido/a a VIRTUS, ${fullName}!\n\nTu cuenta ha sido creada exitosamente.\n\nInformación de tu cuenta:\n- Nombre: ${fullName}\n- Usuario: ${username}\n\nPuedes iniciar sesión en: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login\n\n© Virtus. Todos los derechos reservados.`,
     }
 
     const info = await transporter.sendMail(mailOptions)
@@ -196,7 +196,7 @@ function getPasswordResetTemplate(fullName: string, resetLink: string): string {
           <tr>
             <td style="padding: 30px 40px; background: rgba(0,0,0,0.2);">
               <p style="color: rgba(255,255,255,0.3); font-size: 11px; text-align: center; margin: 0;">
-                © 2026 Virtus. Todos los derechos reservados.
+                © Virtus. Todos los derechos reservados.
               </p>
             </td>
           </tr>
@@ -221,7 +221,7 @@ export async function sendPasswordResetEmail({ to, fullName, resetLink }: Passwo
       to,
       subject: '🔐 Recupera tu contraseña - VIRTUS',
       html: getPasswordResetTemplate(fullName, resetLink),
-      text: `Hola ${fullName},\n\nRecibimos una solicitud para restablecer tu contraseña.\n\nHaz clic en este enlace (válido por 1 hora):\n${resetLink}\n\nSi no solicitaste este cambio, ignora este correo.\n\n© 2026 Virtus.`,
+      text: `Hola ${fullName},\n\nRecibimos una solicitud para restablecer tu contraseña.\n\nHaz clic en este enlace (válido por 1 hora):\n${resetLink}\n\nSi no solicitaste este cambio, ignora este correo.\n\n© Virtus.`,
     }
 
     const info = await transporter.sendMail(mailOptions)
@@ -343,7 +343,7 @@ function getPurchaseEmailTemplate(params: PurchaseEmailParams): string {
                 Si tú no realizaste esta operación, contáctanos de inmediato.
               </p>
               <p style="color: rgba(255,255,255,0.3); font-size: 11px; text-align: center; margin: 0;">
-                © 2026 Virtus. Todos los derechos reservados.<br>
+                © Virtus. Todos los derechos reservados.<br>
                 El contenido y la marca están protegidos por la legislación vigente.
               </p>
             </td>
@@ -379,7 +379,7 @@ export async function sendPurchaseEmail(params: PurchaseEmailParams) {
         `Valor del paquete: ${fmtUsd(params.packageValueUsd)} USD\n` +
         `${params.isUpgrade ? 'Diferencia pagada' : 'Monto invertido'}: ${fmtUsd(params.amountPaidUsd)} USD\n` +
         `Estado: Activo\n\n` +
-        `Ingresa a tu panel: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/home\n\n© 2026 Virtus.`,
+        `Ingresa a tu panel: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/home\n\n© Virtus.`,
     }
 
     const info = await transporter.sendMail(mailOptions)

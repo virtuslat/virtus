@@ -241,7 +241,7 @@ export default function KycPage() {
       </div>
 
       <p className="mt-8 text-[10px] text-white/20 text-center px-4">
-        © 2026 Virtus. Todos los derechos reservados.
+        © Virtus. Todos los derechos reservados.
       </p>
       <BottomNav />
     </div>

@@ -286,7 +286,7 @@ export default function SignupClient({
         </form>
       </div>
       <p className="mt-8 text-[10px] text-white/20 text-center px-4">
-        © 2026 Virtus. Todos los derechos reservados. El contenido y la marca están protegidos por la legislación vigente.
+        © Virtus. Todos los derechos reservados. El contenido y la marca están protegidos por la legislación vigente.
       </p>
 
       {/* Modal de registro exitoso */}
