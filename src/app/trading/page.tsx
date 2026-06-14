@@ -1571,7 +1571,7 @@ export default function FuturosPage() {
                     type="text"
                     value={signalCode}
                     onChange={e => setSignalCode(e.target.value.toUpperCase())}
-                    placeholder="Ej: VIRTUS-000"
+                    placeholder="Ej: VRT-XXXX-XXXX"
                     maxLength={20}
                     className="w-full bg-[#0A1119] border border-white/10 rounded-lg p-2.5 text-center text-lg tracking-widest font-bold text-white focus:border-[#34D399] outline-none uppercase transition-all placeholder:text-gray-700 font-[Orbitron]"
                   />

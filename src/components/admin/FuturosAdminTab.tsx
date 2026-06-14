@@ -607,8 +607,9 @@ export default function FuturosAdminTab({ token }: FuturosAdminTabProps) {
       {signals.filter(s => s.status === 'CLOSED').length > 0 && (
         <Card glassEffect>
           <div className="space-y-2">
-            <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider">Señales Anteriores</h3>
-            {signals.filter(s => s.status === 'CLOSED').slice(0, 10).map((signal) => (
+            <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider">Señales Anteriores ({signals.filter(s => s.status === 'CLOSED').length})</h3>
+            <div className="max-h-[420px] overflow-y-auto space-y-2 pr-1">
+            {signals.filter(s => s.status === 'CLOSED').map((signal) => (
               <div
                 key={signal.id}
                 className="flex justify-between items-center bg-dark-bg rounded-lg px-3 py-2"
@@ -642,6 +643,7 @@ export default function FuturosAdminTab({ token }: FuturosAdminTabProps) {
                 </div>
               </div>
             ))}
+            </div>
           </div>
         </Card>
       )}

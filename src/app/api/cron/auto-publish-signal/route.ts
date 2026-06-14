@@ -10,14 +10,12 @@ const PAIRS = [
 
 const DIRECTIONS = ['CALL', 'PUT']
 
-// Generates a random alphanumeric code like "V7X3K2M9"
+// Genera un código profesional tipo "VRT-7K2M-9X4P" (marca + 2 grupos de 4)
+// Sin caracteres confusos (0, 1, I, O) para evitar errores al copiar.
 function generateCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let code = ''
-  for (let i = 0; i < 8; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)]
-  }
-  return code
+  const seg = (n: number) => Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+  return `VRT-${seg(4)}-${seg(4)}`
 }
 
 // POST: Called by Cron daily at 20:00 UTC (4:00 PM Bolivia time)
